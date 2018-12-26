@@ -384,11 +384,11 @@ int main(int argc, char** argv)
 
     benchmark("resnet18", resnet18_init, resnet18_run);
 
-    benchmark("alexnet", alexnet_init, alexnet_run);*/
+    benchmark("alexnet", alexnet_init, alexnet_run);
 
     benchmark("vgg16", vgg16_init, vgg16_run);
 
-	benchmark("squeezenet-ssd", squeezenet_ssd_init, squeezenet_ssd_run);
+    benchmark("squeezenet-ssd", squeezenet_ssd_init, squeezenet_ssd_run);
 
     benchmark("mobilenet-ssd", mobilenet_ssd_init, mobilenet_ssd_run);
 
