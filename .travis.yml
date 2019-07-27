@@ -21,7 +21,7 @@ addons:
 
 matrix:
   include:
-    - name: "android-armv7-gpu-deploy"
+    - name: "android-armv7-deploy"
       language: android
       dist: trusty
       components:
@@ -29,13 +29,13 @@ matrix:
         - platform-tools
         - tools
         - build-tools-26.0.1
-        - android-24
+        - android-14
         - extra-android-support
         - extra-android-m2repository
-        - sys-img-armeabi-v7a-android-24
+        - sys-img-armeabi-v7a-android-14
       env:
-        - BEFORE_BUILD="wget https://sdk.lunarg.com/sdk/download/1.1.92.1/linux/vulkansdk-linux-x86_64-1.1.92.1.tar.gz?Human=true -O vulkansdk-linux-x86_64-1.1.92.1.tar.gz && tar -xf vulkansdk-linux-x86_64-1.1.92.1.tar.gz && wget https://cmake.org/files/v3.10/cmake-3.10.0-Linux-x86_64.sh && bash cmake-3.10.0-Linux-x86_64.sh --skip-license && wget https://dl.google.com/android/repository/android-ndk-r18b-linux-x86_64.zip && unzip -q android-ndk-r18b-linux-x86_64.zip && (yes | sdkmanager \"platforms;android-24\") && (yes | sdkmanager \"build-tools;26.0.1\") && (echo y | android update sdk -a --no-ui --filter \"android-24\") && (echo y | android update sdk -a --no-ui --filter \"sys-img-armeabi-v7a-android-24\") && (echo no | android create avd --force -n test -t android-24 --abi armeabi-v7a -c 100M) && (QEMU_AUDIO_DRV=none emulator -avd test -no-window &) && android-wait-for-emulator && (adb shell input keyevent 82 &)"
-        - BUILD="export PATH=`pwd`/1.1.92.1/x86_64/bin:$TRAVIS_BUILD_DIR/bin:$PATH && mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=`pwd`/android-ndk-r18b/build/cmake/android.toolchain.cmake -DANDROID_ABI=\"armeabi-v7a\" -DANDROID_ARM_NEON=ON -DANDROID_PLATFORM=android-24 -DNCNN_VULKAN=ON .. && make -j2 && adb shell \"cd /data/local/tmp/ && ls\""
+        - BEFORE_BUILD="wget https://cmake.org/files/v3.10/cmake-3.10.0-Linux-x86_64.sh && bash cmake-3.10.0-Linux-x86_64.sh --skip-license && wget https://dl.google.com/android/repository/android-ndk-r18b-linux-x86_64.zip && unzip -q android-ndk-r18b-linux-x86_64.zip && (yes | sdkmanager \"platforms;android-14\") && (yes | sdkmanager \"build-tools;26.0.1\") && (echo y | android update sdk -a --no-ui --filter \"android-14\") && (echo y | android update sdk -a --no-ui --filter \"sys-img-armeabi-v7a-android-14\") && (echo no | android create avd --force -n test -t android-14 --abi armeabi-v7a -c 100M) && (QEMU_AUDIO_DRV=none emulator -avd test -no-window &)"
+        - BUILD="export PATH=$TRAVIS_BUILD_DIR/bin:$PATH && mkdir build && cd build && cmake -DCMAKE_TOOLCHAIN_FILE=`pwd`/android-ndk-r18b/build/cmake/android.toolchain.cmake -DANDROID_ABI=\"armeabi-v7a\" -DANDROID_ARM_NEON=ON -DANDROID_PLATFORM=android-14 .. && make -j2 && android-wait-for-emulator && adb push ../benchmark/*.param /data/local/tmp && adb push benchmark/benchncnn /data/local/tmp/ && (adb shell \"cd /data/local/tmp/ && ./benchncnn 4 1 0 -1\")"
 
 before_install:
   - eval "${BEFORE_BUILD}"
