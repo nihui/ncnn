@@ -112,26 +112,19 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v1
-    - name: cache-protobuf
-      id: cache-protobuf
-      uses: actions/cache@v1
-      with:
-        path: "protobuf-3.11.2"
-        key: protobuf-3.11.2-build-vs2019-install
     - name: protobuf
-      if: steps.cache-protobuf.outputs.cache-hit != 'true'
       run: |
         Invoke-WebRequest -Uri https://github.com/protocolbuffers/protobuf/archive/v3.11.2.zip -OutFile protobuf-3.11.2.zip
         7z x ./protobuf-3.11.2.zip
         cd protobuf-3.11.2
-        mkdir build-vs2019; cd build-vs2019; cmake -DCMAKE_INSTALL_PREFIX=install -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_MSVC_STATIC_RUNTIME=OFF ../cmake
+        mkdir build-vs2019; cd build-vs2019; cmake -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_MSVC_STATIC_RUNTIME=OFF ../cmake
         cmake --build . --config Release
         cmake --build . --config Release --target install
     - name: configure
       run: |
         mkdir build
         cd build
-        cmake -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON -DProtobuf_DIR=../protobuf-3.11.2/build-vs2019/install/cmake ..
+        cmake ..
     - name: build
       run: cmake --build build
 
