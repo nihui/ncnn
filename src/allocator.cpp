@@ -87,9 +87,8 @@ void* PoolAllocator::fastMalloc(size_t size)
         size_t bs = it->first;
 
         // size_compare_ratio ~ 100%
-        if (bs >= size && ((bs * size_compare_ratio) >> 8) <= size)
-        {
-            void* ptr = it->second;
+        if (bs>=size&&((bs * size_compare_ratio) >> 8) <= size  )        {
+            void  *ptr = it->second;
 
             budgets.erase(it);
 
@@ -101,9 +100,7 @@ void* PoolAllocator::fastMalloc(size_t size)
 
             payouts_lock.unlock();
 
-            return ptr;
-        }
-    }
+            return ptr;}}
 
     budgets_lock.unlock();
 
