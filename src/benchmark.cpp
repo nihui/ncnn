@@ -55,8 +55,8 @@ double get_current_time()
 
 void benchmark(const Layer* layer, double start, double end)
 {
-    fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
-    fprintf(stderr, "    |");
+fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
+  fprintf(stderr, "    |");
     fprintf(stderr, "\n");
 }
 
