@@ -54,10 +54,9 @@ double get_current_time()
 #if NCNN_BENCHMARK
 
 void benchmark(const Layer* layer, double start, double end)
-{
-    fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
-    fprintf(stderr, "    |");
-    fprintf(stderr, "\n");
+{fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
+  fprintf(stderr, "    |");
+         fprintf(stderr, "\n");
 }
 
 void benchmark(const Layer* layer, const Mat& bottom_blob, Mat& top_blob, double start, double end)
