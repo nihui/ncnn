@@ -14,11 +14,12 @@
 
 #include "absval.h"
 
-namespace ncnn {
+namespace ncnn
+{
 
 DEFINE_LAYER_CREATOR(AbsVal)
 
-AbsVal::AbsVal()
+    AbsVal::AbsVal()
 {
     one_blob_only = true;
     support_inplace = true;
