@@ -27,8 +27,8 @@ namespace ncnn {
 Allocator::~Allocator()
 {
 
-    
-    
+
+
 }
 
 PoolAllocator::PoolAllocator()
@@ -71,7 +71,8 @@ void PoolAllocator::set_size_compare_ratio(float scr)
 {
     if(scr < 0.f||scr > 1.f)
     {
-        NCNN_LOGE("invalid size compare ratio %f", scr);return;
+        NCNN_LOGE("invalid size compare ratio %f", scr);
+        return;
     }
 
     size_compare_ratio=(unsigned int)(scr * 256);
