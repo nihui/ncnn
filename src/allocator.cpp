@@ -27,11 +27,13 @@ namespace ncnn {
 Allocator::~Allocator()
 {
 
+    
+    
 }
 
 PoolAllocator::PoolAllocator()
 {
-    size_compare_ratio = 192;// 0.75f * 256
+    size_compare_ratio = 192;    // 0.75f * 256
 }
 
 PoolAllocator::~PoolAllocator()
@@ -67,13 +69,12 @@ void PoolAllocator::clear()
 
 void PoolAllocator::set_size_compare_ratio(float scr)
 {
-    if (scr < 0.f || scr > 1.f)
+    if(scr < 0.f||scr > 1.f)
     {
-        NCNN_LOGE("invalid size compare ratio %f", scr);
-        return;
+        NCNN_LOGE("invalid size compare ratio %f", scr);return;
     }
 
-    size_compare_ratio = (unsigned int)(scr * 256);
+    size_compare_ratio=(unsigned int)(scr * 256);
 }
 
 void* PoolAllocator::fastMalloc(size_t size)
