@@ -14,11 +14,12 @@
 
 #include "absval.h"
 
-namespace ncnn {
+namespace ncnn
+{
 
 DEFINE_LAYER_CREATOR(AbsVal)
 
-AbsVal::AbsVal()
+  AbsVal::AbsVal()
 {
     one_blob_only = true;
     support_inplace = true;
@@ -31,10 +32,9 @@ int AbsVal::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
     int channels = bottom_top_blob.c;
     int size = w * h;
 
-    #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q=0; q<channels; q++)
-    {
-        float* ptr = bottom_top_blob.channel(q);
+   #pragma omp parallel for num_threads(opt.num_threads)
+    for (int q=0; q<channels; q++)    {
+        float  *ptr=bottom_top_blob.channel( q );
 
         for (int i=0; i<size; i++)
         {
