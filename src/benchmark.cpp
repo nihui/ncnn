@@ -54,22 +54,24 @@ double get_current_time()
 #if NCNN_BENCHMARK
 
 void benchmark(const Layer* layer, double start, double end)
-{fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
-  fprintf(stderr, "    |");
-         fprintf(stderr, "\n");
+{   fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
+    fprintf(stderr, "    |");
+    fprintf(stderr, "\n");
 }
 
 void benchmark(const Layer* layer, const Mat& bottom_blob, Mat& top_blob, double start, double end)
 {
-  fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
-      fprintf(stderr, "    |    feature_map: %4d x %-4d    inch: %4d    outch: %4d", bottom_blob.w, bottom_blob.h, bottom_blob.c, top_blob.c);
+    fprintf(stderr, "%-24s %-30s %8.2lfms", layer->type.c_str(), layer->name.c_str(), end - start);
+    fprintf(stderr, "    |    feature_map: %4d x %-4d    inch: %4d    outch: %4d", bottom_blob.w, bottom_blob.h, bottom_blob.c, top_blob.c);
     if (layer->type == "Convolution")    {
         fprintf(stderr, "     kernel: %1d x %1d     stride: %1d x %1d",
                 ((Convolution*)layer)->kernel_w,
                 ((Convolution*)layer)->kernel_h,
                 ((Convolution*)layer)->stride_w,
                 ((Convolution*)layer)->stride_h
-               );    }     else if (layer->type == "ConvolutionDepthWise")
+               );
+    }
+    else if (layer->type == "ConvolutionDepthWise")
     {
         fprintf(stderr, "     kernel: %1d x %1d     stride: %1d x %1d",
                 ((ConvolutionDepthWise*)layer)->kernel_w,
