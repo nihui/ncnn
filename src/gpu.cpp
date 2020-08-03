@@ -3120,6 +3120,11 @@ int resolve_shader_info(const uint32_t* spv_data, size_t spv_data_size, ShaderIn
             {
                 id_types[id] = id_types[type];
             }
+            if (storage_class == 12) // StorageBuffer
+            {
+                id_types[type] = 1;
+                id_types[id] = id_types[type];
+            }
         }
         else if (op == 59) // OpVariable
         {
@@ -3131,6 +3136,10 @@ int resolve_shader_info(const uint32_t* spv_data, size_t spv_data_size, ShaderIn
                 id_types[var_id] = id_types[id];
             }
             if (storage_class == 2) // Uniform
+            {
+                id_types[var_id] = id_types[id];
+            }
+            if (storage_class == 12) // StorageBuffer
             {
                 id_types[var_id] = id_types[id];
             }
