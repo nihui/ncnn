@@ -32,7 +32,7 @@ static struct prng_rand_t g_prng_rand_state;
 #define SRAND(seed) prng_srand(seed, &g_prng_rand_state)
 #define RAND()      prng_rand(&g_prng_rand_state)
 
-static float RandomFloat(float a = -1.5f, float b = 1.5f)
+static float RandomFloat(float a = -1.2f, float b = 1.2f)
 {
     float random = ((float)RAND()) / (float)uint64_t(-1); //RAND_MAX;
     float diff = b - a;
@@ -40,7 +40,7 @@ static float RandomFloat(float a = -1.5f, float b = 1.5f)
     return a + r;
 }
 
-static void Randomize(ncnn::Mat& m, float a = -1.5f, float b = 1.5f)
+static void Randomize(ncnn::Mat& m, float a = -1.2f, float b = 1.2f)
 {
     for (size_t i = 0; i < m.total(); i++)
     {
@@ -1095,7 +1095,7 @@ int test_layer(const char* layer_type, const ncnn::ParamDict& pd, const std::vec
 
         if (opt.use_fp16_arithmetic)
         {
-            epsilon_fp16 = epsilon * 500; // 0.5
+            epsilon_fp16 = epsilon * 1000; // 1.0
         }
 
         std::vector<ncnn::Mat> top_shapes;
@@ -1199,7 +1199,7 @@ int test_layer(const char* layer_type, const ncnn::ParamDict& pd, const std::vec
 
         if (opt.use_fp16_arithmetic)
         {
-            epsilon_fp16 = epsilon * 500; // 0.5
+            epsilon_fp16 = epsilon * 1000; // 1.0
         }
 
         ncnn::Mat top_shape;
