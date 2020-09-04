@@ -17,7 +17,20 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE release CACHE STRING "Choose the type of build" FORCE)
 endif()
 
+if(NOT CMAKE_VERSION VERSION_LESS "3.15")
+    # enable CMAKE_MSVC_RUNTIME_LIBRARY
+    cmake_policy(SET CMP0091 NEW)
+endif()
+
 project(ncnn)
+
+if(MSVC AND NOT CMAKE_VERSION VERSION_LESS "3.15")
+    option(NCNN_BUILD_WITH_STATIC_CRT "Enables use of statically linked CRT for statically linked ncnn" OFF)
+    if(NCNN_BUILD_WITH_STATIC_CRT)
+        # cmake before version 3.15 not work
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    endif()
+endif()
 
 option(NCNN_OPENMP "openmp support" ON)
 option(NCNN_STDIO "load model from external file" ON)
@@ -40,7 +53,7 @@ option(NCNN_BUILD_TESTS "build tests" ON)
 option(NCNN_COVERAGE "build for coverage" OFF)
 option(NCNN_BUILD_BENCHMARK "build benchmark" ON)
 
-if(ANDROID OR IOS)
+if(ANDROID OR IOS OR NCNN_SIMPLESTL)
     option(NCNN_DISABLE_RTTI "disable rtti" ON)
     option(NCNN_BUILD_TOOLS "build tools" OFF)
     option(NCNN_BUILD_EXAMPLES "build examples" OFF)
@@ -50,7 +63,7 @@ else()
     option(NCNN_BUILD_EXAMPLES "build examples" ON)
 endif()
 
-if(ANDROID OR IOS OR LINUX)
+if(ANDROID OR IOS OR LINUX OR NCNN_SIMPLESTL)
     option(NCNN_DISABLE_EXCEPTION "disable exception" ON)
 else()
     option(NCNN_DISABLE_EXCEPTION "disable exception" OFF)
