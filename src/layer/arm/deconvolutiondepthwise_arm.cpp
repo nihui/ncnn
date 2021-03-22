@@ -28,6 +28,10 @@
 
 namespace ncnn {
 
+#if __ARM_NEON
+#include "deconvolutiondepthwise_4x4_pack4.h"
+#endif // __ARM_NEON
+
 DeconvolutionDepthWise_arm::DeconvolutionDepthWise_arm()
 {
 #if __ARM_NEON
@@ -131,6 +135,11 @@ int DeconvolutionDepthWise_arm::create_pipeline(const Option& opt)
         {
             Mat weight_data_r2 = weight_data_transposed.reshape(maxk, group);
             convert_packing(weight_data_r2, weight_data_pack4, 4);
+
+            if (kernel_w == 4 && kernel_h == 4 && dilation_w == 1 && dilation_h == 1 && stride_w == 2 && stride_h == 2)
+            {
+                convert_packing(weight_data, weight_data_pack4, 4);
+            }
         }
 #endif // __ARM_NEON
 
@@ -273,6 +282,14 @@ int DeconvolutionDepthWise_arm::forward(const Mat& bottom_blob, Mat& top_blob, c
 #if __ARM_NEON
         if (elempack == 4)
         {
+            if (kernel_w == 4 && kernel_h == 4 && dilation_w == 1 && dilation_h == 1 && stride_w == 2 && stride_h == 2)
+            {
+                deconv4x4s2_pack4_neon(bottom_blob, top_blob_bordered, weight_data_pack4, bias_data, opt);
+
+                // activation->forward_inplace(top_blob_bordered);
+            }
+            else
+            {
             #pragma omp parallel for num_threads(opt.num_threads)
             for (int g = 0; g < channels; g++)
             {
@@ -330,6 +347,7 @@ int DeconvolutionDepthWise_arm::forward(const Mat& bottom_blob, Mat& top_blob, c
 
                     outptr += outw * 4;
                 }
+            }
             }
         }
 #endif // __ARM_NEON
