@@ -25,6 +25,18 @@
 
 namespace ncnn {
 
+#include "convolutiondepthwise_5x5_pack4_fp16s.h"
+
+void convdw5x5s1_pack4_fp16s_neon_asimdhp(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& bias, const Option& opt)
+{
+    convdw5x5s1_pack4_fp16s_neon(bottom_blob, top_blob, kernel, bias, opt);
+}
+
+void convdw5x5s2_pack4_fp16s_neon_asimdhp(const Mat& bottom_blob, Mat& top_blob, const Mat& kernel, const Mat& bias, const Option& opt)
+{
+    convdw5x5s2_pack4_fp16s_neon(bottom_blob, top_blob, kernel, bias, opt);
+}
+
 #if __ARM_NEON
 #if __ARM_FEATURE_FP16_VECTOR_ARITHMETIC
 #include "convolutiondepthwise_3x3_fp16s.h"
