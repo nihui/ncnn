@@ -2386,7 +2386,7 @@ static void convdw5x5s1_pack4_fp16s_neon(const Mat& bottom_blob, Mat& top_blob, 
             r4 += 4 * 4;
         }
     }
-#else // (__ARM_FP & 2)
+#else  // (__ARM_FP & 2)
     (void)bottom_blob;
     (void)top_blob;
     (void)kernel;
@@ -3866,7 +3866,7 @@ static void convdw5x5s2_pack4_fp16s_neon(const Mat& bottom_blob, Mat& top_blob, 
             r4 += tailstep;
         }
     }
-#else // (__ARM_FP & 2)
+#else  // (__ARM_FP & 2)
     (void)bottom_blob;
     (void)top_blob;
     (void)kernel;
