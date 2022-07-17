@@ -1,6 +1,6 @@
 // Tencent is pleased to support the open source community by making ncnn available.
 //
-// Copyright (C) 2020 THL A29 Limited, a Tencent company. All rights reserved.
+// Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
 //
 // Licensed under the BSD 3-Clause License (the "License"); you may not use this file except
 // in compliance with the License. You may obtain a copy of the License at
@@ -12,6 +12,7 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
+#include "layer.h"
 #include "net.h"
 
 #if defined(USE_NCNN_SIMPLEOCV)
@@ -21,7 +22,6 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #endif
-#include <stdlib.h>
 #include <float.h>
 #include <stdio.h>
 #include <vector>
@@ -121,129 +121,112 @@ static void nms_sorted_bboxes(const std::vector<Object>& faceobjects, std::vecto
     }
 }
 
-static void generate_proposals(const ncnn::Mat& cls_pred, const ncnn::Mat& dis_pred, int stride, const ncnn::Mat& in_pad, float prob_threshold, std::vector<Object>& objects)
+static inline float sigmoid(float x)
 {
-    const int num_grid = cls_pred.h;
+    return static_cast<float>(1.f / (1.f + exp(-x)));
+}
 
-    int num_grid_x;
-    int num_grid_y;
-    if (in_pad.w > in_pad.h)
-    {
-        num_grid_x = in_pad.w / stride;
-        num_grid_y = num_grid / num_grid_x;
-    }
-    else
-    {
-        num_grid_y = in_pad.h / stride;
-        num_grid_x = num_grid / num_grid_y;
-    }
+static void generate_proposals(const ncnn::Mat& anchors, int stride, const ncnn::Mat& in_pad, const ncnn::Mat& feat_blob, float prob_threshold, std::vector<Object>& objects)
+{
+    const int num_grid_x = feat_blob.w;
+    const int num_grid_y = feat_blob.h;
 
-    const int num_class = cls_pred.w;
-    const int reg_max_1 = dis_pred.w / 4;
+    const int num_anchors = anchors.w / 2;
 
-    for (int i = 0; i < num_grid_y; i++)
+    const int num_class = 80;
+
+    for (int q = 0; q < num_anchors; q++)
     {
-        for (int j = 0; j < num_grid_x; j++)
+        const float anchor_w = anchors[q * 2];
+        const float anchor_h = anchors[q * 2 + 1];
+
+        for (int i = 0; i < num_grid_y; i++)
         {
-            const int idx = i * num_grid_x + j;
-
-            const float* scores = cls_pred.row(idx);
-
-            // find label with max score
-            int label = -1;
-            float score = -FLT_MAX;
-            for (int k = 0; k < num_class; k++)
+            for (int j = 0; j < num_grid_x; j++)
             {
-                if (scores[k] > score)
+                // find class index with max class score
+                int class_index = 0;
+                float class_score = -FLT_MAX;
+                for (int k = 0; k < num_class; k++)
                 {
-                    label = k;
-                    score = scores[k];
-                }
-            }
-
-            if (score >= prob_threshold)
-            {
-                ncnn::Mat bbox_pred(reg_max_1, 4, (void*)dis_pred.row(idx));
-                {
-                    ncnn::Layer* softmax = ncnn::create_layer("Softmax");
-
-                    ncnn::ParamDict pd;
-                    pd.set(0, 1); // axis
-                    pd.set(1, 1);
-                    softmax->load_param(pd);
-
-                    ncnn::Option opt;
-                    opt.num_threads = 1;
-                    opt.use_packing_layout = false;
-
-                    softmax->create_pipeline(opt);
-
-                    softmax->forward_inplace(bbox_pred, opt);
-
-                    softmax->destroy_pipeline(opt);
-
-                    delete softmax;
-                }
-
-                float pred_ltrb[4];
-                for (int k = 0; k < 4; k++)
-                {
-                    float dis = 0.f;
-                    const float* dis_after_sm = bbox_pred.row(k);
-                    for (int l = 0; l < reg_max_1; l++)
+                    float score = feat_blob.channel(q * 85 + 5 + k).row(i)[j];
+                    if (score > class_score)
                     {
-                        dis += l * dis_after_sm[l];
+                        class_index = k;
+                        class_score = score;
                     }
-
-                    pred_ltrb[k] = dis * stride;
                 }
 
-                float pb_cx = (j + 0.5f) * stride;
-                float pb_cy = (i + 0.5f) * stride;
+                float box_score = feat_blob.channel(q * 85 + 4).row(i)[j];
 
-                float x0 = pb_cx - pred_ltrb[0];
-                float y0 = pb_cy - pred_ltrb[1];
-                float x1 = pb_cx + pred_ltrb[2];
-                float y1 = pb_cy + pred_ltrb[3];
+                float confidence = sigmoid(box_score) * sigmoid(class_score);
 
-                Object obj;
-                obj.rect.x = x0;
-                obj.rect.y = y0;
-                obj.rect.width = x1 - x0;
-                obj.rect.height = y1 - y0;
-                obj.label = label;
-                obj.prob = score;
+                if (confidence >= prob_threshold)
+                {
+                    // yolov5/models/yolo.py Detect forward
+                    // y = x[i].sigmoid()
+                    // y[..., 0:2] = (y[..., 0:2] * 2. - 0.5 + self.grid[i].to(x[i].device)) * self.stride[i]  # xy
+                    // y[..., 2:4] = (y[..., 2:4] * 2) ** 2 * self.anchor_grid[i]  # wh
 
-                objects.push_back(obj);
+                    float dx = sigmoid(feat_blob.channel(q * 85 + 0).row(i)[j]);
+                    float dy = sigmoid(feat_blob.channel(q * 85 + 1).row(i)[j]);
+                    float dw = sigmoid(feat_blob.channel(q * 85 + 2).row(i)[j]);
+                    float dh = sigmoid(feat_blob.channel(q * 85 + 3).row(i)[j]);
+
+                    float pb_cx = (dx * 2.f - 0.5f + j) * stride;
+                    float pb_cy = (dy * 2.f - 0.5f + i) * stride;
+
+                    float pb_w = pow(dw * 2.f, 2) * anchor_w;
+                    float pb_h = pow(dh * 2.f, 2) * anchor_h;
+
+                    float x0 = pb_cx - pb_w * 0.5f;
+                    float y0 = pb_cy - pb_h * 0.5f;
+                    float x1 = pb_cx + pb_w * 0.5f;
+                    float y1 = pb_cy + pb_h * 0.5f;
+
+                    Object obj;
+                    obj.rect.x = x0;
+                    obj.rect.y = y0;
+                    obj.rect.width = x1 - x0;
+                    obj.rect.height = y1 - y0;
+                    obj.label = class_index;
+                    obj.prob = confidence;
+
+                    objects.push_back(obj);
+                }
             }
         }
     }
 }
 
-static int detect_nanodet(const cv::Mat& bgr, std::vector<Object>& objects)
+static int detect_yolov7(const cv::Mat& bgr, std::vector<Object>& objects)
 {
-    ncnn::Net nanodet;
+    ncnn::Net yolov7;
 
-    nanodet.opt.use_vulkan_compute = true;
-    // nanodet.opt.use_bf16_storage = true;
+    yolov7.opt.use_vulkan_compute = true;
+    // yolov7.opt.use_bf16_storage = true;
 
-    // original pretrained model from https://github.com/RangiLyu/nanodet
-    // the ncnn model https://github.com/nihui/ncnn-assets/tree/master/models
-    if (nanodet.load_param("nanodet_m.param"))
-        exit(-1);
-    if (nanodet.load_model("nanodet_m.bin"))
-        exit(-1);
+    // git clone https://github.com/WongKinYiu/yolov7
+    // cd yolov7
+    // wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt
+    // python models/export.py --weights yolov7.pt
+    // pnnx yolov7.torchscript.pt inputshape=[1,3,640,640] inputshape=[1,3,320,320]
+    yolov7.load_param("yolov7.param");
+    yolov7.load_model("yolov7.bin");
 
-    int width = bgr.cols;
-    int height = bgr.rows;
+    const int target_size = 640;
+    const float prob_threshold = 0.25f;
+    const float nms_threshold = 0.45f;
 
-    const int target_size = 320;
-    const float prob_threshold = 0.4f;
-    const float nms_threshold = 0.5f;
+    int img_w = bgr.cols;
+    int img_h = bgr.rows;
 
-    // pad to multiple of 32
-    int w = width;
-    int h = height;
+    // yolov5/models/common.py DetectMultiBackend
+    const int max_stride = 64;
+
+    // letterbox pad to multiple of max_stride
+    int w = img_w;
+    int h = img_h;
     float scale = 1.f;
     if (w > h)
     {
@@ -258,59 +241,79 @@ static int detect_nanodet(const cv::Mat& bgr, std::vector<Object>& objects)
         w = w * scale;
     }
 
-    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR, width, height, w, h);
+    ncnn::Mat in = ncnn::Mat::from_pixels_resize(bgr.data, ncnn::Mat::PIXEL_BGR2RGB, img_w, img_h, w, h);
 
     // pad to target_size rectangle
-    int wpad = (w + 31) / 32 * 32 - w;
-    int hpad = (h + 31) / 32 * 32 - h;
+    // yolov5/utils/datasets.py letterbox
+    int wpad = (w + max_stride - 1) / max_stride * max_stride - w;
+    int hpad = (h + max_stride - 1) / max_stride * max_stride - h;
     ncnn::Mat in_pad;
-    ncnn::copy_make_border(in, in_pad, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, ncnn::BORDER_CONSTANT, 0.f);
+    ncnn::copy_make_border(in, in_pad, hpad / 2, hpad - hpad / 2, wpad / 2, wpad - wpad / 2, ncnn::BORDER_CONSTANT, 114.f);
 
-    const float mean_vals[3] = {103.53f, 116.28f, 123.675f};
-    const float norm_vals[3] = {0.017429f, 0.017507f, 0.017125f};
-    in_pad.substract_mean_normalize(mean_vals, norm_vals);
+    const float norm_vals[3] = {1 / 255.f, 1 / 255.f, 1 / 255.f};
+    in_pad.substract_mean_normalize(0, norm_vals);
 
-    ncnn::Extractor ex = nanodet.create_extractor();
+    ncnn::Extractor ex = yolov7.create_extractor();
 
-    ex.input("input.1", in_pad);
+    ex.input("in0", in_pad);
 
     std::vector<Object> proposals;
 
+    // anchor setting from yolov5/models/yolov5s.yaml
+
     // stride 8
     {
-        ncnn::Mat cls_pred;
-        ncnn::Mat dis_pred;
-        ex.extract("792", cls_pred);
-        ex.extract("795", dis_pred);
+        ncnn::Mat out;
+        ex.extract("out0", out);
+
+        ncnn::Mat anchors(6);
+        anchors[0] = 12.f;
+        anchors[1] = 16.f;
+        anchors[2] = 19.f;
+        anchors[3] = 36.f;
+        anchors[4] = 40.f;
+        anchors[5] = 28.f;
 
         std::vector<Object> objects8;
-        generate_proposals(cls_pred, dis_pred, 8, in_pad, prob_threshold, objects8);
+        generate_proposals(anchors, 8, in_pad, out, prob_threshold, objects8);
 
         proposals.insert(proposals.end(), objects8.begin(), objects8.end());
     }
 
     // stride 16
     {
-        ncnn::Mat cls_pred;
-        ncnn::Mat dis_pred;
-        ex.extract("814", cls_pred);
-        ex.extract("817", dis_pred);
+        ncnn::Mat out;
+        ex.extract("out1", out);
+
+        ncnn::Mat anchors(6);
+        anchors[0] = 36.f;
+        anchors[1] = 75.f;
+        anchors[2] = 76.f;
+        anchors[3] = 55.f;
+        anchors[4] = 72.f;
+        anchors[5] = 146.f;
 
         std::vector<Object> objects16;
-        generate_proposals(cls_pred, dis_pred, 16, in_pad, prob_threshold, objects16);
+        generate_proposals(anchors, 16, in_pad, out, prob_threshold, objects16);
 
         proposals.insert(proposals.end(), objects16.begin(), objects16.end());
     }
 
     // stride 32
     {
-        ncnn::Mat cls_pred;
-        ncnn::Mat dis_pred;
-        ex.extract("836", cls_pred);
-        ex.extract("839", dis_pred);
+        ncnn::Mat out;
+        ex.extract("out2", out);
+
+        ncnn::Mat anchors(6);
+        anchors[0] = 142.f;
+        anchors[1] = 110.f;
+        anchors[2] = 192.f;
+        anchors[3] = 243.f;
+        anchors[4] = 459.f;
+        anchors[5] = 401.f;
 
         std::vector<Object> objects32;
-        generate_proposals(cls_pred, dis_pred, 32, in_pad, prob_threshold, objects32);
+        generate_proposals(anchors, 32, in_pad, out, prob_threshold, objects32);
 
         proposals.insert(proposals.end(), objects32.begin(), objects32.end());
     }
@@ -336,10 +339,10 @@ static int detect_nanodet(const cv::Mat& bgr, std::vector<Object>& objects)
         float y1 = (objects[i].rect.y + objects[i].rect.height - (hpad / 2)) / scale;
 
         // clip
-        x0 = std::max(std::min(x0, (float)(width - 1)), 0.f);
-        y0 = std::max(std::min(y0, (float)(height - 1)), 0.f);
-        x1 = std::max(std::min(x1, (float)(width - 1)), 0.f);
-        y1 = std::max(std::min(y1, (float)(height - 1)), 0.f);
+        x0 = std::max(std::min(x0, (float)(img_w - 1)), 0.f);
+        y0 = std::max(std::min(y0, (float)(img_h - 1)), 0.f);
+        x1 = std::max(std::min(x1, (float)(img_w - 1)), 0.f);
+        y1 = std::max(std::min(y1, (float)(img_h - 1)), 0.f);
 
         objects[i].rect.x = x0;
         objects[i].rect.y = y0;
@@ -417,7 +420,7 @@ int main(int argc, char** argv)
     }
 
     std::vector<Object> objects;
-    detect_nanodet(m, objects);
+    detect_yolov7(m, objects);
 
     draw_objects(m, objects);
 
