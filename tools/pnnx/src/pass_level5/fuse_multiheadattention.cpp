@@ -1257,6 +1257,20 @@ pnnx.Output             output      1 0 out
 )PNNXIR";
     }
 
+    bool match(const std::map<std::string, Parameter>& captured_params) const
+    {
+        if (!fuse_multiheadattention_pass::match(captured_params))
+            return false;
+
+        const int batch = captured_params.at("batch").i;
+        const int size = captured_params.at("size").i;
+        const int num_heads = captured_params.at("num_heads").i;
+        if (batch < 0 || size < 0 || num_heads < 0)
+            return false;
+
+        return true;
+    }
+
     void write(const std::map<std::string, Operator*>& ops, const std::map<std::string, Parameter>& captured_params, const std::map<std::string, Attribute>& captured_attrs) const
     {
         fuse_multiheadattention_pass::write(ops, captured_params, captured_attrs);

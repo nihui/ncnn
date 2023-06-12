@@ -2152,7 +2152,14 @@ int Graph::python(const std::string& pypath, const std::string& pnnxbinpath)
 
                 if (op->type.substr(0, 7) == "Tensor.")
                 {
-                    fprintf(pyfp, " = v_%s.%s(", sanitize_identifier(op->inputs[0]->name).c_str(), op->type.substr(7).c_str());
+                    if (op->type == "Tensor.fill")
+                    {
+                        fprintf(pyfp, " = v_%s.fill_(", sanitize_identifier(op->inputs[0]->name).c_str());
+                    }
+                    else
+                    {
+                        fprintf(pyfp, " = v_%s.%s(", sanitize_identifier(op->inputs[0]->name).c_str(), op->type.substr(7).c_str());
+                    }
 
                     for (size_t i = 1; i < op->inputs.size(); i++)
                     {
