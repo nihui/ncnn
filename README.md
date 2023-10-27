@@ -6,6 +6,7 @@
 [![Download Total Count][badge-download-count]](https://github.com/Tencent/ncnn/releases)
 [![codecov][badge-codecov]](https://codecov.io/gh/Tencent/ncnn)
 [![Language grade: C/C++][badge-code-quality]](https://lgtm.com/projects/g/Tencent/ncnn/context:cpp)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnihui%2Fncnn.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnihui%2Fncnn?ref=badge_shield)
 
 [badge-license]: https://img.shields.io/badge/license-BSD--3--Clause-blue.svg
 [badge-download-count]: https://img.shields.io/github/downloads/Tencent/ncnn/total.svg
@@ -329,3 +330,6 @@ ncnn 目前已在腾讯多款应用中使用，如：QQ，Qzone，微信，天�
 ## License
 
 [BSD 3 Clause](LICENSE.txt)
+
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fnihui%2Fncnn.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fnihui%2Fncnn?ref=badge_large)
