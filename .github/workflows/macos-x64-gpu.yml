@@ -15,7 +15,6 @@ on:
     - '!tools/pnnx/**'
     - 'examples/**'
   pull_request:
-    branches: [master]
     paths:
     - '.github/workflows/macos-x64-gpu.yml'
     - 'CMakeLists.txt'
@@ -132,6 +131,9 @@ jobs:
         cmake --build . -j 3
         mkdir $GITHUB_WORKSPACE/swiftshader-install
         cp Darwin/* $GITHUB_WORKSPACE/swiftshader-install
+
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
 
     - name: build
       run: |
