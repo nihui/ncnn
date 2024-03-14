@@ -1,0 +1,10 @@
+name: map
+on: [push]
+
+jobs:
+  ubuntu:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: contributor-map
+      uses: tunaitis/contributor-map@v1
