@@ -43,12 +43,23 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 
 int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 {
+// #if NCNN_INT8
+//     if (int8_scale_term)
+//     {
+//         support_packing = false;
+//         return 0;
+//     }
+// #endif
+
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
     opt.use_bf16_storage &= support_bf16_storage;
 
+    // opt.use_packing_layout = false;
+
     {
         qk_softmax = ncnn::create_layer_cpu(ncnn::LayerType::Softmax);
+        // qk_softmax = ncnn::create_layer_naive(ncnn::LayerType::Softmax);
         ncnn::ParamDict pd;
         pd.set(0, -1);
         pd.set(1, 1);
@@ -61,6 +72,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         q_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // q_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(0, scale);
         pd.set(1, 1.f);
@@ -76,11 +88,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);        // output_N1M
         pd.set(12, 1);        // output_elempack
         pd.set(14, 0);        // output_transpose
+        pd.set(18, int8_scale_term);
         q_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = q_weight_data;
-        weights[1] = q_bias_data;
-        q_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = q_weight_data;
+            weights[1] = q_bias_data;
+            Mat q_weight_data_int8_scale_mat(1);
+            q_weight_data_int8_scale_mat[0] = q_weight_data_int8_scale;
+            weights[2] = q_weight_data_int8_scale_mat;
+            q_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = q_weight_data;
+            weights[1] = q_bias_data;
+            q_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         q_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -92,6 +118,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         k_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // k_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 0);         // transA
         pd.set(3, 1);         // transB
@@ -105,11 +132,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);        // output_N1M
         pd.set(12, 1);        // output_elempack
         pd.set(14, 0);        // output_transpose
+        pd.set(18, int8_scale_term);
         k_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = k_weight_data;
-        weights[1] = k_bias_data;
-        k_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = k_weight_data;
+            weights[1] = k_bias_data;
+            Mat k_weight_data_int8_scale_mat(1);
+            k_weight_data_int8_scale_mat[0] = k_weight_data_int8_scale;
+            weights[2] = k_weight_data_int8_scale_mat;
+            k_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = k_weight_data;
+            weights[1] = k_bias_data;
+            k_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         k_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -121,6 +162,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         v_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // v_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 0);         // transA
         pd.set(3, 1);         // transB
@@ -134,11 +176,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);        // output_N1M
         pd.set(12, 1);        // output_elempack
         pd.set(14, 0);        // output_transpose
+        pd.set(18, int8_scale_term);
         v_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = v_weight_data;
-        weights[1] = v_bias_data;
-        v_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = v_weight_data;
+            weights[1] = v_bias_data;
+            Mat v_weight_data_int8_scale_mat(1);
+            v_weight_data_int8_scale_mat[0] = v_weight_data_int8_scale;
+            weights[2] = v_weight_data_int8_scale_mat;
+            v_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = v_weight_data;
+            weights[1] = v_bias_data;
+            v_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         v_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -150,6 +206,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         o_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // o_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 1);         // transA
         pd.set(3, 1);         // transB
@@ -161,11 +218,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(9, embed_dim); // K = maxk*inch
         pd.set(10, 4);        // constant_broadcast_type_C = null
         pd.set(11, 0);        // output_N1M
+        pd.set(18, int8_scale_term);
         o_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = out_weight_data;
-        weights[1] = out_bias_data;
-        o_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = out_weight_data;
+            weights[1] = out_bias_data;
+            Mat out_weight_data_int8_scale_mat(1);
+            out_weight_data_int8_scale_mat[0] = out_weight_data_int8_scale;
+            weights[2] = out_weight_data_int8_scale_mat;
+            o_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = out_weight_data;
+            weights[1] = out_bias_data;
+            o_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         o_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -177,6 +248,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 1);                   // transA
         pd.set(3, 0);                   // transB
@@ -189,6 +261,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(10, attn_mask ? 3 : -1); // constant_broadcast_type_C
         pd.set(11, 0);                  // output_N1M
         pd.set(12, 1);                  // output_elempack
+        pd.set(18, int8_scale_term);
         qk_gemm->load_param(pd);
         qk_gemm->load_model(ModelBinFromMatArray(0));
         Option opt1 = opt;
@@ -198,6 +271,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         qkv_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // qkv_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 0);   // transA
         pd.set(3, 1);   // transB
@@ -211,6 +285,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);  // output_N1M
         pd.set(12, 1);  // output_elempack
         pd.set(14, 1);  // output_transpose
+        pd.set(18, int8_scale_term);
         qkv_gemm->load_param(pd);
         qkv_gemm->load_model(ModelBinFromMatArray(0));
         Option opt1 = opt;
@@ -279,8 +354,60 @@ int MultiHeadAttention_arm::destroy_pipeline(const Option& _opt)
     return 0;
 }
 
+static void print_mat(const ncnn::Mat& m0)
+{
+    return;
+    fprintf(stderr, "%d    %d %d %d @%d\n", m0.dims, m0.w, m0.h, m0.c, m0.elempack);
+
+    ncnn::Mat m;
+    if (m0.elempack != 1)
+    {
+        convert_packing(m0, m, 1);
+    }
+    else
+    {
+        m = m0;
+    }
+
+    const int T = 5;
+    for (int i = 0; i < T; i++)
+    {
+        for (int j = 0; j < T; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "...   ");
+        for (int j = m.w - T; j < m.w; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "            ............\n");
+    for (int i = m.h - T; i < m.h; i++)
+    {
+        for (int j = 0; j < T; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "...   ");
+        for (int j = m.w - T; j < m.w; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "\n");
+    }
+}
+
 int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& _opt) const
 {
+// #if NCNN_INT8
+//     if (int8_scale_term)
+//     {
+//         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
+//     }
+// #endif
+
     const Mat& q_blob = bottom_blobs[0];
     const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
     const Mat& v_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : (bottom_blobs.size() == 2 || (bottom_blobs.size() == 3 && attn_mask)) ? k_blob : bottom_blobs[2];
@@ -289,6 +416,8 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
     opt.use_bf16_storage &= support_bf16_storage;
+
+    // opt.use_packing_layout = false;
 
     Mat attn_mask_blob_unpacked;
     if (attn_mask && attn_mask_blob.elempack != 1)
@@ -310,15 +439,25 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
 
     size_t elemsize = q_blob.elemsize / q_blob.elempack;
 
+    // NCNN_LOGE("X");
+
     Mat q_affine;
     int retq = q_gemm->forward(q_blob, q_affine, opt);
     if (retq != 0)
         return retq;
 
+    print_mat(q_affine);
+
+    // NCNN_LOGE("XX");
+
     Mat k_affine;
     int retk = k_gemm->forward(k_blob, k_affine, opt);
     if (retk != 0)
         return retk;
+
+    print_mat(k_affine);
+
+    // NCNN_LOGE("XXX");
 
     Mat qk_cross(dst_seqlen, src_seqlen * num_heads, elemsize, opt.blob_allocator);
     if (qk_cross.empty())
@@ -352,14 +491,20 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     q_affine.release();
     k_affine.release();
 
+    print_mat(qk_cross);
+
     int retqk = qk_softmax->forward_inplace(qk_cross, opt);
     if (retqk != 0)
         return retqk;
+
+    print_mat(qk_cross);
 
     Mat v_affine;
     int retv = v_gemm->forward(v_blob, v_affine, opt);
     if (retv != 0)
         return retv;
+
+    print_mat(v_affine);
 
     Mat qkv_cross(src_seqlen, embed_dim_per_head * num_heads, elemsize, opt.blob_allocator);
     if (qkv_cross.empty())
@@ -387,9 +532,13 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
 
     v_affine.release();
 
+    print_mat(qkv_cross);
+
     int reto = o_gemm->forward(qkv_cross, top_blobs[0], opt);
     if (reto != 0)
         return reto;
+
+    print_mat(top_blobs[0]);
 
     return 0;
 }

@@ -38,6 +38,14 @@ MultiHeadAttention_x86::MultiHeadAttention_x86()
 
 int MultiHeadAttention_x86::create_pipeline(const Option& opt)
 {
+#if NCNN_INT8
+    if (int8_scale_term)
+    {
+        support_packing = false;
+        return 0;
+    }
+#endif
+
     const int qdim = weight_data_size / embed_dim;
 
     {
@@ -266,6 +274,13 @@ int MultiHeadAttention_x86::destroy_pipeline(const Option& opt)
 
 int MultiHeadAttention_x86::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& opt) const
 {
+#if NCNN_INT8
+    if (int8_scale_term)
+    {
+        return MultiHeadAttention::forward(bottom_blobs, top_blobs, opt);
+    }
+#endif
+
     const Mat& q_blob = bottom_blobs[0];
     const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
     const Mat& v_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : (bottom_blobs.size() == 2 || (bottom_blobs.size() == 3 && attn_mask)) ? k_blob : bottom_blobs[2];
