@@ -43,13 +43,13 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 
 int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 {
-// #if NCNN_INT8
-//     if (int8_scale_term)
-//     {
-//         support_packing = false;
-//         return 0;
-//     }
-// #endif
+    // #if NCNN_INT8
+    //     if (int8_scale_term)
+    //     {
+    //         support_packing = false;
+    //         return 0;
+    //     }
+    // #endif
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
@@ -401,12 +401,12 @@ static void print_mat(const ncnn::Mat& m0)
 
 int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& _opt) const
 {
-// #if NCNN_INT8
-//     if (int8_scale_term)
-//     {
-//         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
-//     }
-// #endif
+    // #if NCNN_INT8
+    //     if (int8_scale_term)
+    //     {
+    //         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
+    //     }
+    // #endif
 
     const Mat& q_blob = bottom_blobs[0];
     const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
