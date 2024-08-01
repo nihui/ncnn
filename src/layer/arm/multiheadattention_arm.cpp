@@ -402,12 +402,12 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
 {
     // NCNN_LOGE("MultiHeadAttention_arm::forward");
 
-// #if NCNN_INT8
-//     if (int8_scale_term)
-//     {
-//         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
-//     }
-// #endif
+    // #if NCNN_INT8
+    //     if (int8_scale_term)
+    //     {
+    //         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
+    //     }
+    // #endif
 
     int q_blob_i = 0;
     int k_blob_i = 0;

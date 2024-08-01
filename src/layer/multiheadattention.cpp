@@ -942,7 +942,7 @@ int MultiHeadAttention::forward_int8(const std::vector<Mat>& bottom_blobs, std::
             {
                 for (int k = 0; k < src_seqlen; k++)
                 {
-                    qaffine.row(i*embed_dim_per_head+j)[k] = xq.channel(i).row(k)[j];
+                    qaffine.row(i * embed_dim_per_head + j)[k] = xq.channel(i).row(k)[j];
                 }
             }
         }

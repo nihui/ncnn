@@ -166,7 +166,7 @@ static int test_multiheadattention_2()
 #if NCNN_INT8
 static int test_multiheadattention_int8(const ncnn::Mat& q, const ncnn::Mat& k, const ncnn::Mat& v, int embed_dim, int num_heads, int attn_mask)
 {
-    attn_mask = 0;//TODO
+    attn_mask = 0; //TODO
 
     const int qdim = q.w;
     const int kdim = k.w;
@@ -179,8 +179,8 @@ static int test_multiheadattention_int8(const ncnn::Mat& q, const ncnn::Mat& k, 
     pd.set(3, kdim);
     pd.set(4, vdim);
     pd.set(5, attn_mask);
-    pd.set(6, 1.f);// TODO
-    pd.set(18, 2); // int8_scale_term
+    pd.set(6, 1.f); // TODO
+    pd.set(18, 2);  // int8_scale_term
 
     std::vector<ncnn::Mat> weights(12);
     weights[0] = RandomS8Mat(embed_dim * qdim);
@@ -230,8 +230,8 @@ static int test_multiheadattention_int8_samekv(const ncnn::Mat& q, const ncnn::M
     pd.set(2, embed_dim * qdim);
     pd.set(3, kvdim);
     pd.set(4, kvdim);
-    pd.set(6, 1.f);// TODO
-    pd.set(18, 2); // int8_scale_term
+    pd.set(6, 1.f); // TODO
+    pd.set(18, 2);  // int8_scale_term
 
     std::vector<ncnn::Mat> weights(12);
     weights[0] = RandomS8Mat(embed_dim * qdim);
@@ -273,8 +273,8 @@ static int test_multiheadattention_int8_sameqkv(const ncnn::Mat& a, int embed_di
     pd.set(3, qdim);
     pd.set(4, qdim);
     // pd.set(6, 0.7f / sqrtf(embed_dim / num_heads));
-    pd.set(6, 1.f);// TODO
-    pd.set(18, 2); // int8_scale_term
+    pd.set(6, 1.f); // TODO
+    pd.set(18, 2);  // int8_scale_term
 
     std::vector<ncnn::Mat> weights(12);
     weights[0] = RandomS8Mat(embed_dim * qdim);

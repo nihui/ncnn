@@ -999,32 +999,32 @@ static void transpose_pack_A_tile_fp32_to_int8(const Mat& A, Mat& AT, int i, int
                 pp[6] = float2int8(p0[12] * scale);
                 pp[7] = float2int8(p0[13] * scale);
 
-                pp[8+0] = float2int8(p0[16] * scale);
-                pp[8+1] = float2int8(p0[17] * scale);
-                pp[8+2] = float2int8(p0[20] * scale);
-                pp[8+3] = float2int8(p0[21] * scale);
-                pp[8+4] = float2int8(p0[24] * scale);
-                pp[8+5] = float2int8(p0[25] * scale);
-                pp[8+6] = float2int8(p0[28] * scale);
-                pp[8+7] = float2int8(p0[29] * scale);
+                pp[8 + 0] = float2int8(p0[16] * scale);
+                pp[8 + 1] = float2int8(p0[17] * scale);
+                pp[8 + 2] = float2int8(p0[20] * scale);
+                pp[8 + 3] = float2int8(p0[21] * scale);
+                pp[8 + 4] = float2int8(p0[24] * scale);
+                pp[8 + 5] = float2int8(p0[25] * scale);
+                pp[8 + 6] = float2int8(p0[28] * scale);
+                pp[8 + 7] = float2int8(p0[29] * scale);
 
-                pp[16+0] = float2int8(p0[2] * scale);
-                pp[16+1] = float2int8(p0[3] * scale);
-                pp[16+2] = float2int8(p0[6] * scale);
-                pp[16+3] = float2int8(p0[7] * scale);
-                pp[16+4] = float2int8(p0[10] * scale);
-                pp[16+5] = float2int8(p0[11] * scale);
-                pp[16+6] = float2int8(p0[14] * scale);
-                pp[16+7] = float2int8(p0[15] * scale);
+                pp[16 + 0] = float2int8(p0[2] * scale);
+                pp[16 + 1] = float2int8(p0[3] * scale);
+                pp[16 + 2] = float2int8(p0[6] * scale);
+                pp[16 + 3] = float2int8(p0[7] * scale);
+                pp[16 + 4] = float2int8(p0[10] * scale);
+                pp[16 + 5] = float2int8(p0[11] * scale);
+                pp[16 + 6] = float2int8(p0[14] * scale);
+                pp[16 + 7] = float2int8(p0[15] * scale);
 
-                pp[24+0] = float2int8(p0[18] * scale);
-                pp[24+1] = float2int8(p0[19] * scale);
-                pp[24+2] = float2int8(p0[22] * scale);
-                pp[24+3] = float2int8(p0[23] * scale);
-                pp[24+4] = float2int8(p0[26] * scale);
-                pp[24+5] = float2int8(p0[27] * scale);
-                pp[24+6] = float2int8(p0[30] * scale);
-                pp[24+7] = float2int8(p0[31] * scale);
+                pp[24 + 0] = float2int8(p0[18] * scale);
+                pp[24 + 1] = float2int8(p0[19] * scale);
+                pp[24 + 2] = float2int8(p0[22] * scale);
+                pp[24 + 3] = float2int8(p0[23] * scale);
+                pp[24 + 4] = float2int8(p0[26] * scale);
+                pp[24 + 5] = float2int8(p0[27] * scale);
+                pp[24 + 6] = float2int8(p0[30] * scale);
+                pp[24 + 7] = float2int8(p0[31] * scale);
 
                 pp += 32;
                 p0 += A_hstep * 4;
@@ -1594,32 +1594,32 @@ static void transpose_pack_B_tile_fp32_to_int8(const Mat& B, Mat& BT, int j, int
                 pp[6] = float2int8(p0[12] * scale);
                 pp[7] = float2int8(p0[13] * scale);
 
-                pp[8+0] = float2int8(p0[16] * scale);
-                pp[8+1] = float2int8(p0[17] * scale);
-                pp[8+2] = float2int8(p0[20] * scale);
-                pp[8+3] = float2int8(p0[21] * scale);
-                pp[8+4] = float2int8(p0[24] * scale);
-                pp[8+5] = float2int8(p0[25] * scale);
-                pp[8+6] = float2int8(p0[28] * scale);
-                pp[8+7] = float2int8(p0[29] * scale);
+                pp[8 + 0] = float2int8(p0[16] * scale);
+                pp[8 + 1] = float2int8(p0[17] * scale);
+                pp[8 + 2] = float2int8(p0[20] * scale);
+                pp[8 + 3] = float2int8(p0[21] * scale);
+                pp[8 + 4] = float2int8(p0[24] * scale);
+                pp[8 + 5] = float2int8(p0[25] * scale);
+                pp[8 + 6] = float2int8(p0[28] * scale);
+                pp[8 + 7] = float2int8(p0[29] * scale);
 
-                pp[16+0] = float2int8(p0[2] * scale);
-                pp[16+1] = float2int8(p0[3] * scale);
-                pp[16+2] = float2int8(p0[6] * scale);
-                pp[16+3] = float2int8(p0[7] * scale);
-                pp[16+4] = float2int8(p0[10] * scale);
-                pp[16+5] = float2int8(p0[11] * scale);
-                pp[16+6] = float2int8(p0[14] * scale);
-                pp[16+7] = float2int8(p0[15] * scale);
+                pp[16 + 0] = float2int8(p0[2] * scale);
+                pp[16 + 1] = float2int8(p0[3] * scale);
+                pp[16 + 2] = float2int8(p0[6] * scale);
+                pp[16 + 3] = float2int8(p0[7] * scale);
+                pp[16 + 4] = float2int8(p0[10] * scale);
+                pp[16 + 5] = float2int8(p0[11] * scale);
+                pp[16 + 6] = float2int8(p0[14] * scale);
+                pp[16 + 7] = float2int8(p0[15] * scale);
 
-                pp[24+0] = float2int8(p0[18] * scale);
-                pp[24+1] = float2int8(p0[19] * scale);
-                pp[24+2] = float2int8(p0[22] * scale);
-                pp[24+3] = float2int8(p0[23] * scale);
-                pp[24+4] = float2int8(p0[26] * scale);
-                pp[24+5] = float2int8(p0[27] * scale);
-                pp[24+6] = float2int8(p0[30] * scale);
-                pp[24+7] = float2int8(p0[31] * scale);
+                pp[24 + 0] = float2int8(p0[18] * scale);
+                pp[24 + 1] = float2int8(p0[19] * scale);
+                pp[24 + 2] = float2int8(p0[22] * scale);
+                pp[24 + 3] = float2int8(p0[23] * scale);
+                pp[24 + 4] = float2int8(p0[26] * scale);
+                pp[24 + 5] = float2int8(p0[27] * scale);
+                pp[24 + 6] = float2int8(p0[30] * scale);
+                pp[24 + 7] = float2int8(p0[31] * scale);
 
                 pp += 32;
                 p0 += B_hstep * 4;
@@ -4691,7 +4691,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 "r"(out_elempack), // %11
                 "r"(out_hstep)     // %12
                 : "cc", "memory", "x4", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
-#else  // NCNN_GNU_INLINE_ASM
+#else // NCNN_GNU_INLINE_ASM
             int32x4_t _sum0;
             int32x4_t _sum1;
             int32x4_t _sum2;
@@ -9819,7 +9819,6 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
 
                 int16x8_t _s0 = vmull_s8(_pA, _pB);
                 _sum = vaddw_s16(_sum, vget_low_s16(_s0));
-
 
                 // A0 A1 A0 A1
                 // B0 B1 B0 B1
