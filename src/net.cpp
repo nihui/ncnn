@@ -616,6 +616,9 @@ IMAGE_ALLOCATION_FAILED:
 
 int NetPrivate::convert_layout(Mat& bottom_blob, const Layer* layer, const Option& opt) const
 {
+    if (bottom_blob.empty())
+        return 0;
+
     if (bottom_blob.elembits() == 32)
     {
         // clang-format off

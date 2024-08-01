@@ -356,7 +356,6 @@ int MultiHeadAttention_arm::destroy_pipeline(const Option& _opt)
 
 static void print_mat(const ncnn::Mat& m0)
 {
-    return;
     fprintf(stderr, "%d    %d %d %d @%d\n", m0.dims, m0.w, m0.h, m0.c, m0.elempack);
 
     ncnn::Mat m;
@@ -401,6 +400,8 @@ static void print_mat(const ncnn::Mat& m0)
 
 int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& _opt) const
 {
+    // NCNN_LOGE("MultiHeadAttention_arm::forward");
+
 // #if NCNN_INT8
 //     if (int8_scale_term)
 //     {
@@ -408,10 +409,136 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
 //     }
 // #endif
 
-    const Mat& q_blob = bottom_blobs[0];
-    const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
-    const Mat& v_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : (bottom_blobs.size() == 2 || (bottom_blobs.size() == 3 && attn_mask)) ? k_blob : bottom_blobs[2];
-    const Mat& attn_mask_blob = attn_mask ? bottom_blobs[bottom_blobs.size() - 1] : Mat();
+    int q_blob_i = 0;
+    int k_blob_i = 0;
+    int v_blob_i = 0;
+    int attn_mask_i = 0;
+    int cached_xk_i = 0;
+    int cached_xv_i = 0;
+    if (kv_cache)
+    {
+        if (attn_mask)
+        {
+            // assert bottom_blobs.size() == 4/5/6
+            if (bottom_blobs.size() == 4)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+                attn_mask_i = 1;
+                cached_xk_i = 2;
+                cached_xv_i = 3;
+            }
+            if (bottom_blobs.size() == 5)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+                attn_mask_i = 2;
+                cached_xk_i = 3;
+                cached_xv_i = 4;
+            }
+            if (bottom_blobs.size() == 6)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+                attn_mask_i = 3;
+                cached_xk_i = 4;
+                cached_xv_i = 5;
+            }
+        }
+        else
+        {
+            // assert bottom_blobs.size() == 3/4/5
+            if (bottom_blobs.size() == 3)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+                cached_xk_i = 1;
+                cached_xv_i = 2;
+            }
+            if (bottom_blobs.size() == 4)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+                cached_xk_i = 2;
+                cached_xv_i = 3;
+            }
+            if (bottom_blobs.size() == 5)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+                cached_xk_i = 3;
+                cached_xv_i = 4;
+            }
+        }
+    }
+    else
+    {
+        if (attn_mask)
+        {
+            // assert bottom_blobs.size() == 2/3/4
+            if (bottom_blobs.size() == 2)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+                attn_mask_i = 1;
+            }
+            if (bottom_blobs.size() == 3)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+                attn_mask_i = 2;
+            }
+            if (bottom_blobs.size() == 4)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+                attn_mask_i = 3;
+            }
+        }
+        else
+        {
+            // assert bottom_blobs.size() == 1/2/3
+            if (bottom_blobs.size() == 1)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+            }
+            if (bottom_blobs.size() == 2)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+            }
+            if (bottom_blobs.size() == 3)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+            }
+        }
+    }
+
+    const Mat& q_blob = bottom_blobs[q_blob_i];
+    const Mat& k_blob = bottom_blobs[k_blob_i];
+    const Mat& v_blob = bottom_blobs[v_blob_i];
+    const Mat& attn_mask_blob = attn_mask ? bottom_blobs[attn_mask_i] : Mat();
+    const Mat& cached_xk_blob = kv_cache ? bottom_blobs[cached_xk_i] : Mat();
+    const Mat& cached_xv_blob = kv_cache ? bottom_blobs[cached_xv_i] : Mat();
+
+    // const Mat& q_blob = bottom_blobs[0];
+    // const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
+    // const Mat& v_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : (bottom_blobs.size() == 2 || (bottom_blobs.size() == 3 && attn_mask)) ? k_blob : bottom_blobs[2];
+    // const Mat& attn_mask_blob = attn_mask ? bottom_blobs[bottom_blobs.size() - 1] : Mat();
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
@@ -431,13 +558,40 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
         attn_mask_blob_unpacked = attn_mask_blob;
     }
 
+    Mat cached_xk_blob_unpacked;
+    if (kv_cache && !cached_xk_blob.empty() && cached_xk_blob.elempack != 1)
+    {
+        convert_packing(cached_xk_blob, cached_xk_blob_unpacked, 1, opt);
+        if (cached_xk_blob_unpacked.empty())
+            return -100;
+    }
+    else
+    {
+        cached_xk_blob_unpacked = cached_xk_blob;
+    }
+
+    Mat cached_xv_blob_unpacked;
+    if (kv_cache && !cached_xv_blob.empty() && cached_xv_blob.elempack != 1)
+    {
+        convert_packing(cached_xv_blob, cached_xv_blob_unpacked, 1, opt);
+        if (cached_xv_blob_unpacked.empty())
+            return -100;
+    }
+    else
+    {
+        cached_xv_blob_unpacked = cached_xv_blob;
+    }
+
     const int embed_dim_per_head = embed_dim / num_heads;
     const int src_seqlen = q_blob.h * q_blob.elempack;
-    const int dst_seqlen = k_blob.h * k_blob.elempack;
+    // const int dst_seqlen = k_blob.h * k_blob.elempack;
+    const int dst_seqlen = (kv_cache && !cached_xk_blob_unpacked.empty()) ? (q_blob_i == k_blob_i ? (cached_xk_blob_unpacked.w + q_blob.h * q_blob.elempack) : cached_xk_blob_unpacked.w) : k_blob.h * k_blob.elempack;
 
     // const int elembits = q_blob.elembits();
 
     size_t elemsize = q_blob.elemsize / q_blob.elempack;
+
+    // NCNN_LOGE("MultiHeadAttention_arm::forward %d %d    %d %d", src_seqlen, dst_seqlen, cached_xk_blob_unpacked.w, cached_xv_blob_unpacked.w);
 
     // NCNN_LOGE("X");
 
@@ -446,16 +600,56 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     if (retq != 0)
         return retq;
 
-    print_mat(q_affine);
+    // print_mat(q_affine);
 
     // NCNN_LOGE("XX");
 
     Mat k_affine;
-    int retk = k_gemm->forward(k_blob, k_affine, opt);
-    if (retk != 0)
-        return retk;
+    if (kv_cache && !cached_xk_blob_unpacked.empty())
+    {
+        if (q_blob_i == k_blob_i)
+        {
+            Mat k_affine_q;
+            int retk = k_gemm->forward(q_blob, k_affine_q, opt);
+            if (retk != 0)
+                return retk;
 
-    print_mat(k_affine);
+            // assert dst_seqlen == cached_xk_blob_unpacked.w + k_affine_q.w
+
+            // merge cached_xk_blob_unpacked and k_affine_q
+            k_affine.create(dst_seqlen, embed_dim);
+            if (k_affine.empty())
+                return -100;
+
+            for (int i = 0; i < embed_dim; i++)
+            {
+                const float* ptr = cached_xk_blob_unpacked.row(i);
+                const float* ptrq = k_affine_q.row(i);
+                float* outptr = k_affine.row(i);
+
+                for (int j = 0; j < cached_xk_blob_unpacked.w; j++)
+                {
+                    *outptr++ = *ptr++;
+                }
+                for (int j = 0; j < k_affine_q.w; j++)
+                {
+                    *outptr++ = *ptrq++;
+                }
+            }
+        }
+        else
+        {
+            k_affine = cached_xk_blob_unpacked;
+        }
+    }
+    else
+    {
+        int retk = k_gemm->forward(k_blob, k_affine, opt);
+        if (retk != 0)
+            return retk;
+    }
+
+    // print_mat(k_affine);
 
     // NCNN_LOGE("XXX");
 
@@ -489,22 +683,66 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     }
 
     q_affine.release();
-    k_affine.release();
+    // k_affine.release();
 
-    print_mat(qk_cross);
+    // print_mat(qk_cross);
+
+    // NCNN_LOGE("XXXX");
 
     int retqk = qk_softmax->forward_inplace(qk_cross, opt);
     if (retqk != 0)
         return retqk;
 
-    print_mat(qk_cross);
+    // print_mat(qk_cross);
 
     Mat v_affine;
-    int retv = v_gemm->forward(v_blob, v_affine, opt);
-    if (retv != 0)
-        return retv;
+    if (kv_cache && !cached_xv_blob_unpacked.empty())
+    {
+        if (q_blob_i == v_blob_i)
+        {
+            Mat v_affine_q;
+            int retk = v_gemm->forward(v_blob, v_affine_q, opt);
+            if (retk != 0)
+                return retk;
 
-    print_mat(v_affine);
+            // assert dst_seqlen == cached_xv_blob_unpacked.w + v_affine_q.w
+
+            // merge cached_xv_blob_unpacked and v_affine_q
+            v_affine.create(dst_seqlen, embed_dim);
+            if (v_affine.empty())
+                return -100;
+
+            for (int i = 0; i < embed_dim; i++)
+            {
+                const float* ptr = cached_xv_blob_unpacked.row(i);
+                const float* ptrq = v_affine_q.row(i);
+                float* outptr = v_affine.row(i);
+
+                for (int j = 0; j < cached_xv_blob_unpacked.w; j++)
+                {
+                    *outptr++ = *ptr++;
+                }
+                for (int j = 0; j < v_affine_q.w; j++)
+                {
+                    *outptr++ = *ptrq++;
+                }
+            }
+        }
+        else
+        {
+            v_affine = cached_xv_blob_unpacked;
+        }
+    }
+    else
+    {
+        int retv = v_gemm->forward(v_blob, v_affine, opt);
+        if (retv != 0)
+            return retv;
+    }
+
+    // print_mat(v_affine);
+
+    // NCNN_LOGE("XXXXX");
 
     Mat qkv_cross(src_seqlen, embed_dim_per_head * num_heads, elemsize, opt.blob_allocator);
     if (qkv_cross.empty())
@@ -530,15 +768,24 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
             return retqkvs[i];
     }
 
-    v_affine.release();
+    // v_affine.release();
 
-    print_mat(qkv_cross);
+    // print_mat(qkv_cross);
+
+    // NCNN_LOGE("XXXXXX");
 
     int reto = o_gemm->forward(qkv_cross, top_blobs[0], opt);
     if (reto != 0)
         return reto;
 
-    print_mat(top_blobs[0]);
+    // print_mat(top_blobs[0]);
+
+    if (kv_cache)
+    {
+        // assert top_blobs.size() == 3
+        top_blobs[1] = k_affine;
+        top_blobs[2] = v_affine;
+    }
 
     return 0;
 }

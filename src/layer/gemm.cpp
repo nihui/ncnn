@@ -220,8 +220,9 @@ static void gemm_transB_int8(const Mat& A_int8, const Mat& BT_int8, float A_int8
     const int N = BT_int8.h;
     const int K = A_int8.w; // assert A_int8.w == BT_int8.w
 
-    const float descale_A = 1.f / A_int8_scale;
-    const float descale_BT = 1.f / BT_int8_scale;
+    const float descale = 1.f / (A_int8_scale * BT_int8_scale);
+
+    // NCNN_LOGE("naive ds %f %f", descale_A, descale_BT);
 
     #pragma omp parallel for num_threads(opt.num_threads)
     for (int i = 0; i < M; i++)
@@ -239,9 +240,10 @@ static void gemm_transB_int8(const Mat& A_int8, const Mat& BT_int8, float A_int8
             for (int k = 0; k < K; k++)
             {
                 sum += ptrA[k] * ptrBT[k];
+                // NCNN_LOGE("naive %d %d  %d", ptrA[k], ptrBT[k], sum);
             }
 
-            float sum_fp32 = sum * (descale_A * descale_BT);
+            float sum_fp32 = sum * descale;
 
             if (ptrC)
             {
@@ -453,11 +455,12 @@ int Gemm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& t
         for (int i = 0; i < A0_int8.h; i++)
         {
             const int A_hstep = A0.dims == 3 ? (int)A0.cstep : A0.w;
-            const float* ptrA = (const float*)A0 + i * A_hstep;
+            const float* ptr = (const float*)A0 + i * A_hstep;
 
+            // NCNN_LOGE("naive ptrA %f", ptr[0]);
             for (int k = 0; k < A0_int8.w; k++)
             {
-                absmax = std::max(absmax, (float)fabs(ptrA[k]));
+                absmax = std::max(absmax, (float)fabs(ptr[k]));
             }
         }
 
@@ -466,13 +469,13 @@ int Gemm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& t
         for (int i = 0; i < A0_int8.h; i++)
         {
             const int A_hstep = A0.dims == 3 ? (int)A0.cstep : A0.w;
-            const float* ptrA = (const float*)A0 + i * A_hstep;
+            const float* ptr = (const float*)A0 + i * A_hstep;
 
             signed char* ptrAi = A0_int8.row<signed char>(i);
 
             for (int k = 0; k < A0_int8.w; k++)
             {
-                ptrAi[k] = float2int8(ptrA[k] * A_int8_scale);
+                ptrAi[k] = float2int8(ptr[k] * A_int8_scale);
             }
         }
     }
@@ -488,11 +491,11 @@ int Gemm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& t
         for (int i = 0; i < B0_int8.h; i++)
         {
             const int B_hstep = B0.dims == 3 ? (int)B0.cstep : B0.w;
-            const float* ptrB = (const float*)B0 + i * B_hstep;
+            const float* ptr = (const float*)B0 + i * B_hstep;
 
             for (int k = 0; k < B0_int8.w; k++)
             {
-                absmax = std::max(absmax, (float)fabs(ptrB[k]));
+                absmax = std::max(absmax, (float)fabs(ptr[k]));
             }
         }
 
@@ -501,13 +504,13 @@ int Gemm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& t
         for (int i = 0; i < B0_int8.h; i++)
         {
             const int B_hstep = B0.dims == 3 ? (int)B0.cstep : B0.w;
-            const float* ptrB = (const float*)B0 + i * B_hstep;
+            const float* ptr = (const float*)B0 + i * B_hstep;
 
             signed char* ptrBi = B0_int8.row<signed char>(i);
 
             for (int k = 0; k < B0_int8.w; k++)
             {
-                ptrBi[k] = float2int8(ptrB[k] * B_int8_scale);
+                ptrBi[k] = float2int8(ptr[k] * B_int8_scale);
             }
         }
     }

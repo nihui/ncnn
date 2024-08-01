@@ -991,39 +991,39 @@ static void transpose_pack_A_tile_fp32_to_int8(const Mat& A, Mat& AT, int i, int
             for (; kk + 3 < max_kk; kk += 4)
             {
                 pp[0] = float2int8(p0[0] * scale);
-                pp[1] = float2int8(p0[4] * scale);
-                pp[2] = float2int8(p0[8] * scale);
-                pp[3] = float2int8(p0[12] * scale);
-                pp[4] = float2int8(p0[16] * scale);
-                pp[5] = float2int8(p0[20] * scale);
-                pp[6] = float2int8(p0[24] * scale);
-                pp[7] = float2int8(p0[28] * scale);
+                pp[1] = float2int8(p0[1] * scale);
+                pp[2] = float2int8(p0[4] * scale);
+                pp[3] = float2int8(p0[5] * scale);
+                pp[4] = float2int8(p0[8] * scale);
+                pp[5] = float2int8(p0[9] * scale);
+                pp[6] = float2int8(p0[12] * scale);
+                pp[7] = float2int8(p0[13] * scale);
 
-                pp[8+0] = float2int8(p0[1] * scale);
-                pp[8+1] = float2int8(p0[5] * scale);
-                pp[8+2] = float2int8(p0[9] * scale);
-                pp[8+3] = float2int8(p0[13] * scale);
-                pp[8+4] = float2int8(p0[17] * scale);
-                pp[8+5] = float2int8(p0[21] * scale);
-                pp[8+6] = float2int8(p0[25] * scale);
+                pp[8+0] = float2int8(p0[16] * scale);
+                pp[8+1] = float2int8(p0[17] * scale);
+                pp[8+2] = float2int8(p0[20] * scale);
+                pp[8+3] = float2int8(p0[21] * scale);
+                pp[8+4] = float2int8(p0[24] * scale);
+                pp[8+5] = float2int8(p0[25] * scale);
+                pp[8+6] = float2int8(p0[28] * scale);
                 pp[8+7] = float2int8(p0[29] * scale);
 
                 pp[16+0] = float2int8(p0[2] * scale);
-                pp[16+1] = float2int8(p0[6] * scale);
-                pp[16+2] = float2int8(p0[10] * scale);
-                pp[16+3] = float2int8(p0[14] * scale);
-                pp[16+4] = float2int8(p0[18] * scale);
-                pp[16+5] = float2int8(p0[22] * scale);
-                pp[16+6] = float2int8(p0[26] * scale);
-                pp[16+7] = float2int8(p0[30] * scale);
+                pp[16+1] = float2int8(p0[3] * scale);
+                pp[16+2] = float2int8(p0[6] * scale);
+                pp[16+3] = float2int8(p0[7] * scale);
+                pp[16+4] = float2int8(p0[10] * scale);
+                pp[16+5] = float2int8(p0[11] * scale);
+                pp[16+6] = float2int8(p0[14] * scale);
+                pp[16+7] = float2int8(p0[15] * scale);
 
-                pp[24+0] = float2int8(p0[3] * scale);
-                pp[24+1] = float2int8(p0[7] * scale);
-                pp[24+2] = float2int8(p0[11] * scale);
-                pp[24+3] = float2int8(p0[15] * scale);
-                pp[24+4] = float2int8(p0[19] * scale);
-                pp[24+5] = float2int8(p0[23] * scale);
-                pp[24+6] = float2int8(p0[27] * scale);
+                pp[24+0] = float2int8(p0[18] * scale);
+                pp[24+1] = float2int8(p0[19] * scale);
+                pp[24+2] = float2int8(p0[22] * scale);
+                pp[24+3] = float2int8(p0[23] * scale);
+                pp[24+4] = float2int8(p0[26] * scale);
+                pp[24+5] = float2int8(p0[27] * scale);
+                pp[24+6] = float2int8(p0[30] * scale);
                 pp[24+7] = float2int8(p0[31] * scale);
 
                 pp += 32;
@@ -1098,21 +1098,22 @@ static void transpose_pack_A_tile_fp32_to_int8(const Mat& A, Mat& AT, int i, int
             for (; kk + 3 < max_kk; kk += 4)
             {
                 pp[0] = float2int8(p0[0] * scale);
-                pp[1] = float2int8(p0[4] * scale);
-                pp[2] = float2int8(p0[8] * scale);
-                pp[3] = float2int8(p0[12] * scale);
-                pp[4] = float2int8(p0[1] * scale);
-                pp[5] = float2int8(p0[5] * scale);
-                pp[6] = float2int8(p0[9] * scale);
+                pp[1] = float2int8(p0[1] * scale);
+                pp[2] = float2int8(p0[4] * scale);
+                pp[3] = float2int8(p0[5] * scale);
+                pp[4] = float2int8(p0[8] * scale);
+                pp[5] = float2int8(p0[9] * scale);
+                pp[6] = float2int8(p0[12] * scale);
                 pp[7] = float2int8(p0[13] * scale);
                 pp[8] = float2int8(p0[2] * scale);
-                pp[9] = float2int8(p0[6] * scale);
-                pp[10] = float2int8(p0[10] * scale);
-                pp[11] = float2int8(p0[14] * scale);
-                pp[12] = float2int8(p0[3] * scale);
-                pp[13] = float2int8(p0[7] * scale);
-                pp[14] = float2int8(p0[11] * scale);
+                pp[9] = float2int8(p0[3] * scale);
+                pp[10] = float2int8(p0[6] * scale);
+                pp[11] = float2int8(p0[7] * scale);
+                pp[12] = float2int8(p0[10] * scale);
+                pp[13] = float2int8(p0[11] * scale);
+                pp[14] = float2int8(p0[14] * scale);
                 pp[15] = float2int8(p0[15] * scale);
+
                 pp += 16;
                 p0 += A_hstep * 4;
             }
@@ -1169,12 +1170,12 @@ static void transpose_pack_A_tile_fp32_to_int8(const Mat& A, Mat& AT, int i, int
             for (; kk + 3 < max_kk; kk += 4)
             {
                 pp[0] = float2int8(p0[0] * scale);
-                pp[1] = float2int8(p0[4] * scale);
-                pp[2] = float2int8(p0[1] * scale);
+                pp[1] = float2int8(p0[1] * scale);
+                pp[2] = float2int8(p0[4] * scale);
                 pp[3] = float2int8(p0[5] * scale);
                 pp[4] = float2int8(p0[2] * scale);
-                pp[5] = float2int8(p0[6] * scale);
-                pp[6] = float2int8(p0[3] * scale);
+                pp[5] = float2int8(p0[3] * scale);
+                pp[6] = float2int8(p0[6] * scale);
                 pp[7] = float2int8(p0[7] * scale);
                 pp += 8;
                 p0 += A_hstep * 4;
@@ -1185,36 +1186,36 @@ static void transpose_pack_A_tile_fp32_to_int8(const Mat& A, Mat& AT, int i, int
             const float* p0 = (const float*)A + k * A_hstep + (i + ii);
 
             int kk = 0;
-            for (; kk + 3 < max_kk; kk += 4)
-            {
-                float32x2_t _p0 = vld1_f32(p0);
-                float32x2_t _p1 = vld1_f32(p0 + A_hstep);
-                float32x2_t _p2 = vld1_f32(p0 + A_hstep * 2);
-                float32x2_t _p3 = vld1_f32(p0 + A_hstep * 3);
-
-                float32x4_t _p02 = vcombine_f32(_p0, _p2);
-                float32x4_t _p13 = vcombine_f32(_p1, _p3);
-
-                _p02 = vmulq_f32(_p02, _scale);
-                _p13 = vmulq_f32(_p13, _scale);
-
-                float32x4x2_t _p0123 = vzipq_f32(_p02, _p13);
-
-                int8x8_t _r01 = float2int8(_p0123.val[0], _p0123.val[1]);
-
-                vst1_s8(pp, _r01);
-
-                // pp[0] = float2int8(p0[0] * scale);
-                // pp[1] = float2int8(p0[A_hstep + 0] * scale);
-                // pp[2] = float2int8(p0[1] * scale);
-                // pp[3] = float2int8(p0[A_hstep + 1] * scale);
-                // pp[4] = float2int8(p0[A_hstep * 2] * scale);
-                // pp[5] = float2int8(p0[A_hstep * 3 + 0] * scale);
-                // pp[6] = float2int8(p0[A_hstep * 2] * scale);
-                // pp[7] = float2int8(p0[A_hstep * 3 + 1] * scale);
-                pp += 8;
-                p0 += A_hstep * 4;
-            }
+            // for (; kk + 3 < max_kk; kk += 4)
+            // {
+            //     float32x2_t _p0 = vld1_f32(p0);
+            //     float32x2_t _p1 = vld1_f32(p0 + A_hstep);
+            //     float32x2_t _p2 = vld1_f32(p0 + A_hstep * 2);
+            //     float32x2_t _p3 = vld1_f32(p0 + A_hstep * 3);
+            //
+            //     float32x4_t _p02 = vcombine_f32(_p0, _p2);
+            //     float32x4_t _p13 = vcombine_f32(_p1, _p3);
+            //
+            //     _p02 = vmulq_f32(_p02, _scale);
+            //     _p13 = vmulq_f32(_p13, _scale);
+            //
+            //     float32x4x2_t _p0123 = vzipq_f32(_p02, _p13);
+            //
+            //     int8x8_t _r01 = float2int8(_p0123.val[0], _p0123.val[1]);
+            //
+            //     vst1_s8(pp, _r01);
+            //
+            //     // pp[0] = float2int8(p0[0] * scale);
+            //     // pp[1] = float2int8(p0[A_hstep + 0] * scale);
+            //     // pp[2] = float2int8(p0[1] * scale);
+            //     // pp[3] = float2int8(p0[A_hstep + 1] * scale);
+            //     // pp[4] = float2int8(p0[A_hstep * 2] * scale);
+            //     // pp[5] = float2int8(p0[A_hstep * 3 + 0] * scale);
+            //     // pp[6] = float2int8(p0[A_hstep * 2] * scale);
+            //     // pp[7] = float2int8(p0[A_hstep * 3 + 1] * scale);
+            //     pp += 8;
+            //     p0 += A_hstep * 4;
+            // }
             for (; kk + 1 < max_kk; kk += 2)
             {
                 pp[0] = float2int8(p0[0] * scale);
@@ -1585,39 +1586,39 @@ static void transpose_pack_B_tile_fp32_to_int8(const Mat& B, Mat& BT, int j, int
             for (; kk < max_kk; kk++)
             {
                 pp[0] = float2int8(p0[0] * scale);
-                pp[1] = float2int8(p0[4] * scale);
-                pp[2] = float2int8(p0[8] * scale);
-                pp[3] = float2int8(p0[12] * scale);
-                pp[4] = float2int8(p0[16] * scale);
-                pp[5] = float2int8(p0[20] * scale);
-                pp[6] = float2int8(p0[24] * scale);
-                pp[7] = float2int8(p0[28] * scale);
+                pp[1] = float2int8(p0[1] * scale);
+                pp[2] = float2int8(p0[4] * scale);
+                pp[3] = float2int8(p0[5] * scale);
+                pp[4] = float2int8(p0[8] * scale);
+                pp[5] = float2int8(p0[9] * scale);
+                pp[6] = float2int8(p0[12] * scale);
+                pp[7] = float2int8(p0[13] * scale);
 
-                pp[8+0] = float2int8(p0[1] * scale);
-                pp[8+1] = float2int8(p0[5] * scale);
-                pp[8+2] = float2int8(p0[9] * scale);
-                pp[8+3] = float2int8(p0[13] * scale);
-                pp[8+4] = float2int8(p0[17] * scale);
-                pp[8+5] = float2int8(p0[21] * scale);
-                pp[8+6] = float2int8(p0[25] * scale);
+                pp[8+0] = float2int8(p0[16] * scale);
+                pp[8+1] = float2int8(p0[17] * scale);
+                pp[8+2] = float2int8(p0[20] * scale);
+                pp[8+3] = float2int8(p0[21] * scale);
+                pp[8+4] = float2int8(p0[24] * scale);
+                pp[8+5] = float2int8(p0[25] * scale);
+                pp[8+6] = float2int8(p0[28] * scale);
                 pp[8+7] = float2int8(p0[29] * scale);
 
                 pp[16+0] = float2int8(p0[2] * scale);
-                pp[16+1] = float2int8(p0[6] * scale);
-                pp[16+2] = float2int8(p0[10] * scale);
-                pp[16+3] = float2int8(p0[14] * scale);
-                pp[16+4] = float2int8(p0[18] * scale);
-                pp[16+5] = float2int8(p0[22] * scale);
-                pp[16+6] = float2int8(p0[26] * scale);
-                pp[16+7] = float2int8(p0[30] * scale);
+                pp[16+1] = float2int8(p0[3] * scale);
+                pp[16+2] = float2int8(p0[6] * scale);
+                pp[16+3] = float2int8(p0[7] * scale);
+                pp[16+4] = float2int8(p0[10] * scale);
+                pp[16+5] = float2int8(p0[11] * scale);
+                pp[16+6] = float2int8(p0[14] * scale);
+                pp[16+7] = float2int8(p0[15] * scale);
 
-                pp[24+0] = float2int8(p0[3] * scale);
-                pp[24+1] = float2int8(p0[7] * scale);
-                pp[24+2] = float2int8(p0[11] * scale);
-                pp[24+3] = float2int8(p0[15] * scale);
-                pp[24+4] = float2int8(p0[19] * scale);
-                pp[24+5] = float2int8(p0[23] * scale);
-                pp[24+6] = float2int8(p0[27] * scale);
+                pp[24+0] = float2int8(p0[18] * scale);
+                pp[24+1] = float2int8(p0[19] * scale);
+                pp[24+2] = float2int8(p0[22] * scale);
+                pp[24+3] = float2int8(p0[23] * scale);
+                pp[24+4] = float2int8(p0[26] * scale);
+                pp[24+5] = float2int8(p0[27] * scale);
+                pp[24+6] = float2int8(p0[30] * scale);
                 pp[24+7] = float2int8(p0[31] * scale);
 
                 pp += 32;
@@ -1690,24 +1691,25 @@ static void transpose_pack_B_tile_fp32_to_int8(const Mat& B, Mat& BT, int j, int
             const float* p0 = (const float*)B + k * B_hstep + (j + jj) * 4;
 
             int kk = 0;
-            for (; kk < max_kk; kk++)
+            for (; kk + 3 < max_kk; kk += 4)
             {
                 pp[0] = float2int8(p0[0] * scale);
-                pp[1] = float2int8(p0[4] * scale);
-                pp[2] = float2int8(p0[8] * scale);
-                pp[3] = float2int8(p0[12] * scale);
-                pp[4] = float2int8(p0[1] * scale);
-                pp[5] = float2int8(p0[5] * scale);
-                pp[6] = float2int8(p0[9] * scale);
+                pp[1] = float2int8(p0[1] * scale);
+                pp[2] = float2int8(p0[4] * scale);
+                pp[3] = float2int8(p0[5] * scale);
+                pp[4] = float2int8(p0[8] * scale);
+                pp[5] = float2int8(p0[9] * scale);
+                pp[6] = float2int8(p0[12] * scale);
                 pp[7] = float2int8(p0[13] * scale);
                 pp[8] = float2int8(p0[2] * scale);
-                pp[9] = float2int8(p0[6] * scale);
-                pp[10] = float2int8(p0[10] * scale);
-                pp[11] = float2int8(p0[14] * scale);
-                pp[12] = float2int8(p0[3] * scale);
-                pp[13] = float2int8(p0[7] * scale);
-                pp[14] = float2int8(p0[11] * scale);
+                pp[9] = float2int8(p0[3] * scale);
+                pp[10] = float2int8(p0[6] * scale);
+                pp[11] = float2int8(p0[7] * scale);
+                pp[12] = float2int8(p0[10] * scale);
+                pp[13] = float2int8(p0[11] * scale);
+                pp[14] = float2int8(p0[14] * scale);
                 pp[15] = float2int8(p0[15] * scale);
+
                 pp += 16;
                 p0 += B_hstep * 4;
             }
@@ -1761,15 +1763,15 @@ static void transpose_pack_B_tile_fp32_to_int8(const Mat& B, Mat& BT, int j, int
             const float* p0 = (const float*)B + k * B_hstep + (j + jj) * 4;
 
             int kk = 0;
-            for (; kk < max_kk; kk++)
+            for (; kk + 3 < max_kk; kk += 4)
             {
                 pp[0] = float2int8(p0[0] * scale);
-                pp[1] = float2int8(p0[4] * scale);
-                pp[2] = float2int8(p0[1] * scale);
+                pp[1] = float2int8(p0[1] * scale);
+                pp[2] = float2int8(p0[4] * scale);
                 pp[3] = float2int8(p0[5] * scale);
                 pp[4] = float2int8(p0[2] * scale);
-                pp[5] = float2int8(p0[6] * scale);
-                pp[6] = float2int8(p0[3] * scale);
+                pp[5] = float2int8(p0[3] * scale);
+                pp[6] = float2int8(p0[6] * scale);
                 pp[7] = float2int8(p0[7] * scale);
                 pp += 8;
                 p0 += B_hstep * 4;
@@ -1835,7 +1837,7 @@ static void transpose_pack_B_tile_fp32_to_int8(const Mat& B, Mat& BT, int j, int
             const float* p0 = (const float*)B + k * B_hstep + (j + jj) * 4;
 
             int kk = 0;
-            for (; kk < max_kk; kk++)
+            for (; kk + 3 < max_kk; kk += 4)
             {
                 pp[0] = float2int8(p0[0] * scale);
                 pp[1] = float2int8(p0[1] * scale);
@@ -1894,10 +1896,10 @@ static void transpose_pack_B_tile_fp32_to_int8(const Mat& B, Mat& BT, int j, int
 
 static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat& top_blob, int broadcast_type_C, int i, int max_ii, int j, int max_jj, float descale)
 {
-    // NCNN_LOGE("unpack_output_tile_int32_to_fp32  %d %d %d %d  %f", i, max_ii, j, max_jj, descale);
-
     const int out_elempack = top_blob.elempack;
     const int out_hstep = top_blob.dims == 3 ? (int)top_blob.cstep : top_blob.w;
+
+    // NCNN_LOGE("unpack_output_tile_int32_to_fp32  %d %d %d %d  %d  %d", i, max_ii, j, max_jj, out_elempack, broadcast_type_C);
 
     // if (broadcast_type_C != -1)
     // NCNN_LOGE("unpack_output_tile_int32_to_fp32 %d %d    %d    %d %d %d", out_elempack, C.elempack, broadcast_type_C, C.w, C.h, C.c);
@@ -2333,16 +2335,22 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 1 || broadcast_type_C == 2)
                     {
-                        float32x4_t _c0 = vld1q_f32(pC);
-                        float32x4_t _c1 = vld1q_f32(pC + 4);
+                        float32x4_t _c0 = vdupq_n_f32(pC[0]);
+                        float32x4_t _c1 = vdupq_n_f32(pC[1]);
+                        float32x4_t _c2 = vdupq_n_f32(pC[2]);
+                        float32x4_t _c3 = vdupq_n_f32(pC[3]);
+                        float32x4_t _c4 = vdupq_n_f32(pC[4]);
+                        float32x4_t _c5 = vdupq_n_f32(pC[5]);
+                        float32x4_t _c6 = vdupq_n_f32(pC[6]);
+                        float32x4_t _c7 = vdupq_n_f32(pC[7]);
                         _f0 = vaddq_f32(_f0, _c0);
-                        _f1 = vaddq_f32(_f1, _c0);
-                        _f2 = vaddq_f32(_f2, _c0);
-                        _f3 = vaddq_f32(_f3, _c0);
-                        _f4 = vaddq_f32(_f4, _c1);
-                        _f5 = vaddq_f32(_f5, _c1);
-                        _f6 = vaddq_f32(_f6, _c1);
-                        _f7 = vaddq_f32(_f7, _c1);
+                        _f1 = vaddq_f32(_f1, _c1);
+                        _f2 = vaddq_f32(_f2, _c2);
+                        _f3 = vaddq_f32(_f3, _c3);
+                        _f4 = vaddq_f32(_f4, _c4);
+                        _f5 = vaddq_f32(_f5, _c5);
+                        _f6 = vaddq_f32(_f6, _c6);
+                        _f7 = vaddq_f32(_f7, _c7);
                     }
                     if (broadcast_type_C == 3)
                     {
@@ -3141,27 +3149,29 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     if (broadcast_type_C == 1 || broadcast_type_C == 2)
                     {
                         p0[0] += pC[0];
-                        p0[1] += pC[1];
-                        p1[0] += pC[0];
+                        p0[1] += pC[0];
+                        p1[0] += pC[1];
                         p1[1] += pC[1];
                     }
                     if (broadcast_type_C == 3)
                     {
                         p0[0] += pC[0];
-                        p0[1] += pC[1];
-                        p1[0] += pC[c_hstep];
+                        p0[1] += pC[c_hstep];
+                        p1[0] += pC[1];
                         p1[1] += pC[c_hstep + 1];
                         pC += 2;
                     }
                     if (broadcast_type_C == 4)
                     {
                         p0[0] += pC[0];
-                        p0[1] += pC[0];
-                        p1[0] += pC[1];
+                        p0[1] += pC[1];
+                        p1[0] += pC[0];
                         p1[1] += pC[1];
                         pC += 2;
                     }
                 }
+
+                // NCNN_LOGE("%f %f", p0[1], p1[0]);
 
                 pp += 4;
                 p0 += 2;
@@ -3694,13 +3704,16 @@ static void transpose_unpack_output_tile_int32_to_fp32(const Mat& topT, Mat& top
 #endif // __aarch64__
             for (; jj + 3 < max_jj; jj += 4)
             {
+                // a0 a1 a2 a3
+                // b0 b1 b2 b3
+
                 p0[0] = pp[0] * descale;
-                p0[1] = pp[2] * descale;
-                p0[2] = pp[4] * descale;
-                p0[3] = pp[6] * descale;
-                p0[4] = pp[1] * descale;
-                p0[5] = pp[3] * descale;
-                p0[6] = pp[5] * descale;
+                p0[1] = pp[1] * descale;
+                p0[2] = pp[2] * descale;
+                p0[3] = pp[3] * descale;
+                p0[4] = pp[4] * descale;
+                p0[5] = pp[5] * descale;
+                p0[6] = pp[6] * descale;
                 p0[7] = pp[7] * descale;
                 pp += 8;
                 p0 += out_hstep * 4;
@@ -3836,7 +3849,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
         {
             const signed char* pA = pAT;
 
-#if 0//NCNN_GNU_INLINE_ASM
+#if NCNN_GNU_INLINE_ASM
             asm volatile(
 #if !__ARM_FEATURE_MATMUL_INT8
                 "cmp    %w9, #0                     \n"
@@ -9715,6 +9728,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
         for (; jj + 1 < max_jj; jj += 2)
         {
 #if __ARM_NEON
+#if 1
             int32x4_t _sum;
 
             if (k == 0)
@@ -9787,6 +9801,12 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 int16x8_t _s0 = vmull_s8(_pA, _pB);
                 _sum = vpadalq_s16(_sum, _s0);
 
+                // A0 A1 A2 A3
+                // B0 B1 B2 B3
+
+                // A0 A1 A0 A1 A2 A3 A2 A3
+                // B0 B1 B2 B3 B0 B1 B2 B3
+
                 pA += 4;
                 pB += 4;
             }
@@ -9799,6 +9819,12 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
 
                 int16x8_t _s0 = vmull_s8(_pA, _pB);
                 _sum = vaddw_s16(_sum, vget_low_s16(_s0));
+
+
+                // A0 A1 A0 A1
+                // B0 B1 B0 B1
+
+                // A0 A0 A1 A1
 
                 pA += 2;
                 pB += 2;
@@ -9819,8 +9845,69 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
             {
                 vst1q_s32(outptr, _sum);
             }
-
             outptr += 4;
+#else
+
+            int sum00;
+            int sum10;
+            int sum01;
+            int sum11;
+
+            if (k == 0)
+            {
+                sum00 = 0;
+                sum10 = 0;
+                sum01 = 0;
+                sum11 = 0;
+            }
+            else
+            {
+                sum00 = outptr[0];
+                sum10 = outptr[1];
+                sum01 = outptr[2];
+                sum11 = outptr[3];
+            }
+
+            const signed char* pA = pAT;
+            int kk = 0;
+
+            for (; kk + 1 < max_kk; kk += 2)
+            {
+                sum00 += pA[0] * pB[0];
+                sum00 += pA[1] * pB[1];
+
+                sum10 += pA[2] * pB[0];
+                sum10 += pA[3] * pB[1];
+
+                sum01 += pA[0] * pB[2];
+                sum01 += pA[1] * pB[3];
+
+                sum11 += pA[2] * pB[2];
+                sum11 += pA[3] * pB[3];
+
+                pA += 4;
+                pB += 4;
+            }
+            for (; kk < max_kk; kk += 1)
+            {
+                sum00 += pA[0] * pB[0];
+                sum10 += pA[1] * pB[0];
+                sum01 += pA[0] * pB[1];
+                sum11 += pA[1] * pB[1];
+
+                pA += 2;
+                pB += 2;
+            }
+
+            {
+                outptr[0] = sum00;
+                outptr[1] = sum10;
+                outptr[2] = sum01;
+                outptr[3] = sum11;
+            }
+            outptr += 4;
+#endif
+
 #else // __ARM_NEON
             int sum00;
             int sum10;

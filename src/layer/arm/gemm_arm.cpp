@@ -4246,6 +4246,8 @@ int Gemm_arm::create_pipeline(const Option& opt)
     if (int8_scale_term)
     {
         // support_packing = false;
+        support_fp16_storage = false;
+        support_bf16_storage = false;
         return create_pipeline_int8(opt);
         // return 0;
     }
@@ -5330,11 +5332,12 @@ static int gemm_arm_int8(const Mat& A, const Mat& B, const Mat& C, Mat& top_blob
 #if __ARM_NEON
         float32x4_t _absmax = vdupq_n_f32(0.f);
 #endif
-        for (int i = 0; i < A.h; i++)
+        for (int i = 0; i < (A.dims == 3 ? A.c : A.h); i++)
         {
             const int A_hstep = A.dims == 3 ? (int)A.cstep : A.w;
             const float* ptr = (const float*)A + i * A_hstep * A.elempack;
 
+            // NCNN_LOGE("arm ptrA %f", ptr[0]);
             int j = 0;
 #if __ARM_NEON
             for (; j + 3 < A.w * A.elempack; j += 4)
@@ -5365,7 +5368,7 @@ static int gemm_arm_int8(const Mat& A, const Mat& B, const Mat& C, Mat& top_blob
 #if __ARM_NEON
         float32x4_t _absmax = vdupq_n_f32(0.f);
 #endif
-        for (int i = 0; i < B.h; i++)
+        for (int i = 0; i < (B.dims == 3 ? B.c : B.h); i++)
         {
             const int B_hstep = B.dims == 3 ? (int)B.cstep : B.w;
             const float* ptr = (const float*)B + i * B_hstep * B.elempack;
@@ -5394,6 +5397,8 @@ static int gemm_arm_int8(const Mat& A, const Mat& B, const Mat& C, Mat& top_blob
     }
 
     const float output_descale = 1.f / (A_int8_scale * B_int8_scale);
+
+    // NCNN_LOGE("arm ds %f %f", 1/A_int8_scale, 1/B_int8_scale);
 
     // pack B
     #pragma omp parallel for num_threads(nT)
@@ -5511,7 +5516,7 @@ static int gemm_AT_arm_int8(const Mat& AT, float A_int8_scale, const Mat& B, con
 #if __ARM_NEON
         float32x4_t _absmax = vdupq_n_f32(0.f);
 #endif
-        for (int i = 0; i < B.h; i++)
+        for (int i = 0; i < (B.dims == 3 ? B.c : B.h); i++)
         {
             const int B_hstep = B.dims == 3 ? (int)B.cstep : B.w;
             const float* ptr = (const float*)B + i * B_hstep * B.elempack;
@@ -5539,7 +5544,7 @@ static int gemm_AT_arm_int8(const Mat& AT, float A_int8_scale, const Mat& B, con
         B_int8_scale = absmax == 0.f ? 1.f : 127.f / absmax;
     }
 
-    // NCNN_LOGE("%.4f", B_int8_scale);
+    // NCNN_LOGE("%.4f %.4f", A_int8_scale, B_int8_scale);
 
     const float output_descale = 1.f / (A_int8_scale * B_int8_scale);
 
@@ -5636,7 +5641,7 @@ static int gemm_BT_arm_int8(const Mat& A, const Mat& BT, float B_int8_scale, con
 #if __ARM_NEON
         float32x4_t _absmax = vdupq_n_f32(0.f);
 #endif
-        for (int i = 0; i < A.h; i++)
+        for (int i = 0; i < (A.dims == 3 ? A.c : A.h); i++)
         {
             const int A_hstep = A.dims == 3 ? (int)A.cstep : A.w;
             const float* ptr = (const float*)A + i * A_hstep * A.elempack;
