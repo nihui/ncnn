@@ -172,18 +172,18 @@ static void pack_A_tile_int8(const Mat& A, Mat& AT, int i, int max_ii, int k, in
         const signed char* p1 = A.row<const signed char>(i + ii + 1) + k;
 
         int kk = 0;
-// #if __ARM_NEON
-//         for (; kk + 7 < max_kk; kk += 8)
-//         {
-//             int8x8x2_t _r01;
-//             _r01.val[0] = vld1_s8(p0);
-//             _r01.val[1] = vld1_s8(p1);
-//             vst2_s8(pp, _r01);
-//             pp += 16;
-//             p0 += 8;
-//             p1 += 8;
-//         }
-// #endif // __ARM_NEON
+        // #if __ARM_NEON
+        //         for (; kk + 7 < max_kk; kk += 8)
+        //         {
+        //             int8x8x2_t _r01;
+        //             _r01.val[0] = vld1_s8(p0);
+        //             _r01.val[1] = vld1_s8(p1);
+        //             vst2_s8(pp, _r01);
+        //             pp += 16;
+        //             p0 += 8;
+        //             p1 += 8;
+        //         }
+        // #endif // __ARM_NEON
         for (; kk + 1 < max_kk; kk += 2)
         {
             pp[0] = p0[0];
@@ -208,14 +208,14 @@ static void pack_A_tile_int8(const Mat& A, Mat& AT, int i, int max_ii, int k, in
         const signed char* p0 = A.row<const signed char>(i + ii) + k;
 
         int kk = 0;
-// #if __ARM_NEON
-//         for (; kk + 7 < max_kk; kk += 8)
-//         {
-//             vst1_s8(pp, vld1_s8(p0));
-//             pp += 8;
-//             p0 += 8;
-//         }
-// #endif // __ARM_NEON
+        // #if __ARM_NEON
+        //         for (; kk + 7 < max_kk; kk += 8)
+        //         {
+        //             vst1_s8(pp, vld1_s8(p0));
+        //             pp += 8;
+        //             p0 += 8;
+        //         }
+        // #endif // __ARM_NEON
         for (; kk + 1 < max_kk; kk += 2)
         {
             pp[0] = p0[0];
@@ -497,18 +497,18 @@ static void pack_B_tile_int8(const Mat& B, Mat& BT, int j, int max_jj, int k, in
         const signed char* p1 = B.row<const signed char>(j + jj + 1) + k;
 
         int kk = 0;
-// #if __ARM_NEON
-//         for (; kk + 7 < max_kk; kk += 8)
-//         {
-//             int8x8x2_t _r01;
-//             _r01.val[0] = vld1_s8(p0);
-//             _r01.val[1] = vld1_s8(p1);
-//             vst2_s8(pp, _r01);
-//             pp += 16;
-//             p0 += 8;
-//             p1 += 8;
-//         }
-// #endif // __ARM_NEON
+        // #if __ARM_NEON
+        //         for (; kk + 7 < max_kk; kk += 8)
+        //         {
+        //             int8x8x2_t _r01;
+        //             _r01.val[0] = vld1_s8(p0);
+        //             _r01.val[1] = vld1_s8(p1);
+        //             vst2_s8(pp, _r01);
+        //             pp += 16;
+        //             p0 += 8;
+        //             p1 += 8;
+        //         }
+        // #endif // __ARM_NEON
         for (; kk + 1 < max_kk; kk += 2)
         {
             pp[0] = p0[0];
@@ -533,14 +533,14 @@ static void pack_B_tile_int8(const Mat& B, Mat& BT, int j, int max_jj, int k, in
         const signed char* p0 = B.row<const signed char>(j + jj) + k;
 
         int kk = 0;
-// #if __ARM_NEON
-//         for (; kk + 7 < max_kk; kk += 8)
-//         {
-//             vst1_s8(pp, vld1_s8(p0));
-//             pp += 8;
-//             p0 += 8;
-//         }
-// #endif // __ARM_NEON
+        // #if __ARM_NEON
+        //         for (; kk + 7 < max_kk; kk += 8)
+        //         {
+        //             vst1_s8(pp, vld1_s8(p0));
+        //             pp += 8;
+        //             p0 += 8;
+        //         }
+        // #endif // __ARM_NEON
         for (; kk + 1 < max_kk; kk += 2)
         {
             pp[0] = p0[0];
@@ -4691,7 +4691,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 "r"(out_elempack), // %11
                 "r"(out_hstep)     // %12
                 : "cc", "memory", "x4", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
-#else // NCNN_GNU_INLINE_ASM
+#else  // NCNN_GNU_INLINE_ASM
             int32x4_t _sum0;
             int32x4_t _sum1;
             int32x4_t _sum2;
@@ -5214,408 +5214,408 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 pB += 8;
             }
 
-//             if (k_end)
-//             {
-// #if __ARM_FEATURE_DOTPROD
-//                 // from
-//                 //      a0 b0 c0 d0
-//                 //      a1 b1 c1 d1
-//                 //      a2 b2 c2 d2
-//                 //      a3 b3 c3 d3
-//                 //      e0 f0 g0 h0
-//                 //      e1 f1 g1 h1
-//                 //      e2 f2 g2 h2
-//                 //      e3 f3 g3 h3
-//                 //      a4 b4 c4 d4
-//                 //      a5 b5 c5 d5
-//                 //      a6 b6 c6 d6
-//                 //      a7 b7 c7 d7
-//                 //      e4 f4 g4 h4
-//                 //      e5 f5 g5 h5
-//                 //      e6 f6 g6 h6
-//                 //      e7 f7 g7 h7
-//                 if (out_elempack == 8)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum4);
-//                     vst1q_s32(outptr0 + 8, _sum1);
-//                     vst1q_s32(outptr0 + 12, _sum5);
-//                     vst1q_s32(outptr0 + 16, _sum2);
-//                     vst1q_s32(outptr0 + 20, _sum6);
-//                     vst1q_s32(outptr0 + 24, _sum3);
-//                     vst1q_s32(outptr0 + 28, _sum7);
-//                     vst1q_s32(outptr0 + 32, _sum8);
-//                     vst1q_s32(outptr0 + 36, _sumc);
-//                     vst1q_s32(outptr0 + 40, _sum9);
-//                     vst1q_s32(outptr0 + 44, _sumd);
-//                     vst1q_s32(outptr0 + 48, _suma);
-//                     vst1q_s32(outptr0 + 52, _sume);
-//                     vst1q_s32(outptr0 + 56, _sumb);
-//                     vst1q_s32(outptr0 + 60, _sumf);
-//                     outptr0 += 64;
-//                 }
-//                 if (out_elempack == 4)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     vst1q_s32(outptr0 + 16, _sum8);
-//                     vst1q_s32(outptr0 + 20, _sum9);
-//                     vst1q_s32(outptr0 + 24, _suma);
-//                     vst1q_s32(outptr0 + 28, _sumb);
-//                     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum5);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 8, _sum6);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 12, _sum7);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 16, _sumc);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 20, _sumd);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 24, _sume);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 28, _sumf);
-//                     outptr0 += 32;
-//                 }
-//                 if (out_elempack == 1)
-//                 {
-//                     // to
-//                     //      a0 a1 a2 a3
-//                     //      a4 a5 a6 a7
-//                     //      b0 b1 b2 b3
-//                     //      b4 b5 b6 b7
-//                     //      c0 c1 c2 c3
-//                     //      c4 c5 c6 c7
-//                     //      d0 d1 d2 d3
-//                     //      d4 d5 d6 d7
-//                     //      e0 e1 e2 e3
-//                     //      e4 e5 e6 e7
-//                     //      f0 f1 f2 f3
-//                     //      f4 f5 f6 f7
-//                     //      g0 g1 g2 g3
-//                     //      g4 g5 g6 g7
-//                     //      h0 h1 h2 h3
-//                     //      h4 h5 h6 h7
-//                     {
-//                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
-//                         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum3);
-//                         int32x4x2_t _t2 = vzipq_s32(_sum8, _sum9);
-//                         int32x4x2_t _t3 = vzipq_s32(_suma, _sumb);
-//                         int32x4x2_t _t4 = vzipq_s32(_sum4, _sum5);
-//                         int32x4x2_t _t5 = vzipq_s32(_sum6, _sum7);
-//                         int32x4x2_t _t6 = vzipq_s32(_sumc, _sumd);
-//                         int32x4x2_t _t7 = vzipq_s32(_sume, _sumf);
-//                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                         _sum4 = vcombine_s32(vget_low_s32(_t0.val[1]), vget_low_s32(_t1.val[1]));
-//                         _sum5 = vcombine_s32(vget_low_s32(_t2.val[1]), vget_low_s32(_t3.val[1]));
-//                         _sum6 = vcombine_s32(vget_high_s32(_t0.val[1]), vget_high_s32(_t1.val[1]));
-//                         _sum7 = vcombine_s32(vget_high_s32(_t2.val[1]), vget_high_s32(_t3.val[1]));
-//                         _sum8 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
-//                         _sum9 = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
-//                         _suma = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
-//                         _sumb = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
-//                         _sumc = vcombine_s32(vget_low_s32(_t4.val[1]), vget_low_s32(_t5.val[1]));
-//                         _sumd = vcombine_s32(vget_low_s32(_t6.val[1]), vget_low_s32(_t7.val[1]));
-//                         _sume = vcombine_s32(vget_high_s32(_t4.val[1]), vget_high_s32(_t5.val[1]));
-//                         _sumf = vcombine_s32(vget_high_s32(_t6.val[1]), vget_high_s32(_t7.val[1]));
-//                     }
-//
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + out_hstep, _sum2);
-//                     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
-//                     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
-//                     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
-//                     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
-//                     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
-//                     vst1q_s32(outptr0 + out_hstep * 4, _sum8);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum9);
-//                     vst1q_s32(outptr0 + out_hstep * 5, _suma);
-//                     vst1q_s32(outptr0 + out_hstep * 5 + 4, _sumb);
-//                     vst1q_s32(outptr0 + out_hstep * 6, _sumc);
-//                     vst1q_s32(outptr0 + out_hstep * 6 + 4, _sumd);
-//                     vst1q_s32(outptr0 + out_hstep * 7, _sume);
-//                     vst1q_s32(outptr0 + out_hstep * 7 + 4, _sumf);
-//                     outptr0 += 8;
-//                 }
-// #else  // __ARM_FEATURE_DOTPROD
-//
-//                 // from
-//                 //      a0 b1 c2 d3
-//                 //      e4 f5 g6 h7
-//                 //      e0 f1 g2 h3
-//                 //      a4 b5 c6 d7
-//                 //      c0 d1 a2 b3
-//                 //      g4 h5 e6 f7
-//                 //      g0 h1 e2 f3
-//                 //      c4 d5 a6 b7
-//                 //      a3 b2 c1 d0
-//                 //      e7 f6 g5 h4
-//                 //      e3 f2 g1 h0
-//                 //      a7 b6 c5 d4
-//                 //      c3 d2 a1 b0
-//                 //      g7 h6 e5 f4
-//                 //      g3 h2 e1 f0
-//                 //      c7 d6 a5 b4
-//                 if (out_elempack == 8)
-//                 {
-//                     // to
-//                     //      a0 b0 c0 d0
-//                     //      e0 f0 g0 h0
-//                     //      a1 b1 c1 d1
-//                     //      e1 f1 g1 h1
-//                     //      a2 b2 c2 d2
-//                     //      e2 f2 g2 h2
-//                     //      a3 b3 c3 d3
-//                     //      e3 f3 g3 h3
-//                     //      a4 b4 c4 d4
-//                     //      e4 f4 g4 h4
-//                     //      a5 b5 c5 d5
-//                     //      e5 f5 g5 h5
-//                     //      a6 b6 c6 d6
-//                     //      e6 f6 g6 h6
-//                     //      a7 b7 c7 d7
-//                     //      e7 f7 g7 h7
-//                     {
-//                         _sum8 = vrev64q_s32(_sum8);
-//                         _sum9 = vrev64q_s32(_sum9);
-//                         _suma = vrev64q_s32(_suma);
-//                         _sumb = vrev64q_s32(_sumb);
-//                         _sumc = vrev64q_s32(_sumc);
-//                         _sumd = vrev64q_s32(_sumd);
-//                         _sume = vrev64q_s32(_sume);
-//                         _sumf = vrev64q_s32(_sumf);
-//                         _sum8 = vextq_s32(_sum8, _sum8, 2);
-//                         _sum9 = vextq_s32(_sum9, _sum9, 2);
-//                         _suma = vextq_s32(_suma, _suma, 2);
-//                         _sumb = vextq_s32(_sumb, _sumb, 2);
-//                         _sumc = vextq_s32(_sumc, _sumc, 2);
-//                         _sumd = vextq_s32(_sumd, _sumd, 2);
-//                         _sume = vextq_s32(_sume, _sume, 2);
-//                         _sumf = vextq_s32(_sumf, _sumf, 2);
-//                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sumc);
-//                         int32x4x2_t _t1 = vzipq_s32(_sum4, _sum8);
-//                         int32x4x2_t _t2 = vzipq_s32(_sum2, _sume);
-//                         int32x4x2_t _t3 = vzipq_s32(_sum6, _suma);
-//                         int32x4x2_t _t4 = vzipq_s32(_sum3, _sumf);
-//                         int32x4x2_t _t5 = vzipq_s32(_sum7, _sumb);
-//                         int32x4x2_t _t6 = vzipq_s32(_sum1, _sumd);
-//                         int32x4x2_t _t7 = vzipq_s32(_sum5, _sum9);
-//                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                         _sum8 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
-//                         _sum9 = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
-//                         _suma = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
-//                         _sumb = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
-//                         _sumc = vcombine_s32(vget_low_s32(_t5.val[1]), vget_low_s32(_t4.val[1]));
-//                         _sumd = vcombine_s32(vget_low_s32(_t7.val[1]), vget_low_s32(_t6.val[1]));
-//                         _sume = vcombine_s32(vget_high_s32(_t5.val[1]), vget_high_s32(_t4.val[1]));
-//                         _sumf = vcombine_s32(vget_high_s32(_t7.val[1]), vget_high_s32(_t6.val[1]));
-//                         _sum2 = vrev64q_s32(_sum2);
-//                         _sum3 = vrev64q_s32(_sum3);
-//                         _sum6 = vrev64q_s32(_sum6);
-//                         _sum7 = vrev64q_s32(_sum7);
-//                         _suma = vrev64q_s32(_suma);
-//                         _sumb = vrev64q_s32(_sumb);
-//                         _sume = vrev64q_s32(_sume);
-//                         _sumf = vrev64q_s32(_sumf);
-//                     }
-//
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     vst1q_s32(outptr0 + 16, _sum4);
-//                     vst1q_s32(outptr0 + 20, _sum5);
-//                     vst1q_s32(outptr0 + 24, _sum6);
-//                     vst1q_s32(outptr0 + 28, _sum7);
-//                     vst1q_s32(outptr0 + 32, _sum8);
-//                     vst1q_s32(outptr0 + 36, _sum9);
-//                     vst1q_s32(outptr0 + 40, _suma);
-//                     vst1q_s32(outptr0 + 44, _sumb);
-//                     vst1q_s32(outptr0 + 48, _sumc);
-//                     vst1q_s32(outptr0 + 52, _sumd);
-//                     vst1q_s32(outptr0 + 56, _sume);
-//                     vst1q_s32(outptr0 + 60, _sumf);
-//                     outptr0 += 64;
-//                 }
-//                 if (out_elempack == 4)
-//                 {
-//                     // to
-//                     //      a0 b0 c0 d0
-//                     //      a1 b1 c1 d1
-//                     //      a2 b2 c2 d2
-//                     //      a3 b3 c3 d3
-//                     //      a4 b4 c4 d4
-//                     //      a5 b5 c5 d5
-//                     //      a6 b6 c6 d6
-//                     //      a7 b7 c7 d7
-//                     //      e0 f0 g0 h0
-//                     //      e1 f1 g1 h1
-//                     //      e2 f2 g2 h2
-//                     //      e3 f3 g3 h3
-//                     //      e4 f4 g4 h4
-//                     //      e5 f5 g5 h5
-//                     //      e6 f6 g6 h6
-//                     //      e7 f7 g7 h7
-//                     {
-//                         _sum8 = vrev64q_s32(_sum8);
-//                         _sum9 = vrev64q_s32(_sum9);
-//                         _suma = vrev64q_s32(_suma);
-//                         _sumb = vrev64q_s32(_sumb);
-//                         _sumc = vrev64q_s32(_sumc);
-//                         _sumd = vrev64q_s32(_sumd);
-//                         _sume = vrev64q_s32(_sume);
-//                         _sumf = vrev64q_s32(_sumf);
-//                         _sum8 = vextq_s32(_sum8, _sum8, 2);
-//                         _sum9 = vextq_s32(_sum9, _sum9, 2);
-//                         _suma = vextq_s32(_suma, _suma, 2);
-//                         _sumb = vextq_s32(_sumb, _sumb, 2);
-//                         _sumc = vextq_s32(_sumc, _sumc, 2);
-//                         _sumd = vextq_s32(_sumd, _sumd, 2);
-//                         _sume = vextq_s32(_sume, _sume, 2);
-//                         _sumf = vextq_s32(_sumf, _sumf, 2);
-//                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sumc);
-//                         int32x4x2_t _t1 = vzipq_s32(_sum4, _sum8);
-//                         int32x4x2_t _t2 = vzipq_s32(_sum2, _sume);
-//                         int32x4x2_t _t3 = vzipq_s32(_sum6, _suma);
-//                         int32x4x2_t _t4 = vzipq_s32(_sum3, _sumf);
-//                         int32x4x2_t _t5 = vzipq_s32(_sum7, _sumb);
-//                         int32x4x2_t _t6 = vzipq_s32(_sum1, _sumd);
-//                         int32x4x2_t _t7 = vzipq_s32(_sum5, _sum9);
-//                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                         _sum4 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
-//                         _sum5 = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
-//                         _sum6 = vcombine_s32(vget_low_s32(_t5.val[1]), vget_low_s32(_t4.val[1]));
-//                         _sum7 = vcombine_s32(vget_high_s32(_t5.val[1]), vget_high_s32(_t4.val[1]));
-//                         _sum8 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                         _sum9 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                         _suma = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                         _sumb = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                         _sumc = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
-//                         _sumd = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
-//                         _sume = vcombine_s32(vget_low_s32(_t7.val[1]), vget_low_s32(_t6.val[1]));
-//                         _sumf = vcombine_s32(vget_high_s32(_t7.val[1]), vget_high_s32(_t6.val[1]));
-//                         _sum1 = vrev64q_s32(_sum1);
-//                         _sum3 = vrev64q_s32(_sum3);
-//                         _sum5 = vrev64q_s32(_sum5);
-//                         _sum7 = vrev64q_s32(_sum7);
-//                         _sum9 = vrev64q_s32(_sum9);
-//                         _sumb = vrev64q_s32(_sumb);
-//                         _sumd = vrev64q_s32(_sumd);
-//                         _sumf = vrev64q_s32(_sumf);
-//                     }
-//
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     vst1q_s32(outptr0 + 16, _sum4);
-//                     vst1q_s32(outptr0 + 20, _sum5);
-//                     vst1q_s32(outptr0 + 24, _sum6);
-//                     vst1q_s32(outptr0 + 28, _sum7);
-//                     vst1q_s32(outptr0 + out_hstep * 4, _sum8);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum9);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 8, _suma);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 12, _sumb);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 16, _sumc);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 20, _sumd);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 24, _sume);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 28, _sumf);
-//                     outptr0 += 32;
-//                 }
-//                 if (out_elempack == 1)
-//                 {
-//                     // to
-//                     //      a0 a1 a2 a3
-//                     //      a4 a5 a6 a7
-//                     //      b0 b1 b2 b3
-//                     //      b4 b5 b6 b7
-//                     //      c0 c1 c2 c3
-//                     //      c4 c5 c6 c7
-//                     //      d0 d1 d2 d3
-//                     //      d4 d5 d6 d7
-//                     //      e0 e1 e2 e3
-//                     //      e4 e5 e6 e7
-//                     //      f0 f1 f2 f3
-//                     //      f4 f5 f6 f7
-//                     //      g0 g1 g2 g3
-//                     //      g4 g5 g6 g7
-//                     //      h0 h1 h2 h3
-//                     //      h4 h5 h6 h7
-//                     {
-//                         _sum4 = vextq_s32(_sum4, _sum4, 2);
-//                         _sum5 = vextq_s32(_sum5, _sum5, 2);
-//                         _sum6 = vextq_s32(_sum6, _sum6, 2);
-//                         _sum7 = vextq_s32(_sum7, _sum7, 2);
-//                         _sumc = vextq_s32(_sumc, _sumc, 2);
-//                         _sumd = vextq_s32(_sumd, _sumd, 2);
-//                         _sume = vextq_s32(_sume, _sume, 2);
-//                         _sumf = vextq_s32(_sumf, _sumf, 2);
-//                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sumc);
-//                         int32x4x2_t _t1 = vzipq_s32(_sum4, _sum8);
-//                         int32x4x2_t _t2 = vzipq_s32(_sum3, _sumf);
-//                         int32x4x2_t _t3 = vzipq_s32(_sum7, _sumb);
-//                         int32x4x2_t _t4 = vzipq_s32(_sum2, _sume);
-//                         int32x4x2_t _t5 = vzipq_s32(_sum6, _suma);
-//                         int32x4x2_t _t6 = vzipq_s32(_sum1, _sumd);
-//                         int32x4x2_t _t7 = vzipq_s32(_sum5, _sum9);
-//                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                         _sum8 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
-//                         _sum9 = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
-//                         _suma = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
-//                         _sumb = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
-//                         _sumc = vcombine_s32(vget_low_s32(_t5.val[1]), vget_low_s32(_t4.val[1]));
-//                         _sumd = vcombine_s32(vget_low_s32(_t7.val[1]), vget_low_s32(_t6.val[1]));
-//                         _sume = vcombine_s32(vget_high_s32(_t5.val[1]), vget_high_s32(_t4.val[1]));
-//                         _sumf = vcombine_s32(vget_high_s32(_t7.val[1]), vget_high_s32(_t6.val[1]));
-//                         _sum2 = vrev64q_s32(_sum2);
-//                         _sum3 = vrev64q_s32(_sum3);
-//                         _sum6 = vrev64q_s32(_sum6);
-//                         _sum7 = vrev64q_s32(_sum7);
-//                         _suma = vrev64q_s32(_suma);
-//                         _sumb = vrev64q_s32(_sumb);
-//                         _sume = vrev64q_s32(_sume);
-//                         _sumf = vrev64q_s32(_sumf);
-//                     }
-//
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + out_hstep, _sum2);
-//                     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
-//                     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
-//                     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
-//                     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
-//                     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
-//                     vst1q_s32(outptr0 + out_hstep * 4, _sum8);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum9);
-//                     vst1q_s32(outptr0 + out_hstep * 5, _suma);
-//                     vst1q_s32(outptr0 + out_hstep * 5 + 4, _sumb);
-//                     vst1q_s32(outptr0 + out_hstep * 6, _sumc);
-//                     vst1q_s32(outptr0 + out_hstep * 6 + 4, _sumd);
-//                     vst1q_s32(outptr0 + out_hstep * 7, _sume);
-//                     vst1q_s32(outptr0 + out_hstep * 7 + 4, _sumf);
-//                     outptr0 += 8;
-//                 }
-// #endif // __ARM_FEATURE_DOTPROD
-//             }
-//             else
+            //             if (k_end)
+            //             {
+            // #if __ARM_FEATURE_DOTPROD
+            //                 // from
+            //                 //      a0 b0 c0 d0
+            //                 //      a1 b1 c1 d1
+            //                 //      a2 b2 c2 d2
+            //                 //      a3 b3 c3 d3
+            //                 //      e0 f0 g0 h0
+            //                 //      e1 f1 g1 h1
+            //                 //      e2 f2 g2 h2
+            //                 //      e3 f3 g3 h3
+            //                 //      a4 b4 c4 d4
+            //                 //      a5 b5 c5 d5
+            //                 //      a6 b6 c6 d6
+            //                 //      a7 b7 c7 d7
+            //                 //      e4 f4 g4 h4
+            //                 //      e5 f5 g5 h5
+            //                 //      e6 f6 g6 h6
+            //                 //      e7 f7 g7 h7
+            //                 if (out_elempack == 8)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum4);
+            //                     vst1q_s32(outptr0 + 8, _sum1);
+            //                     vst1q_s32(outptr0 + 12, _sum5);
+            //                     vst1q_s32(outptr0 + 16, _sum2);
+            //                     vst1q_s32(outptr0 + 20, _sum6);
+            //                     vst1q_s32(outptr0 + 24, _sum3);
+            //                     vst1q_s32(outptr0 + 28, _sum7);
+            //                     vst1q_s32(outptr0 + 32, _sum8);
+            //                     vst1q_s32(outptr0 + 36, _sumc);
+            //                     vst1q_s32(outptr0 + 40, _sum9);
+            //                     vst1q_s32(outptr0 + 44, _sumd);
+            //                     vst1q_s32(outptr0 + 48, _suma);
+            //                     vst1q_s32(outptr0 + 52, _sume);
+            //                     vst1q_s32(outptr0 + 56, _sumb);
+            //                     vst1q_s32(outptr0 + 60, _sumf);
+            //                     outptr0 += 64;
+            //                 }
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     vst1q_s32(outptr0 + 16, _sum8);
+            //                     vst1q_s32(outptr0 + 20, _sum9);
+            //                     vst1q_s32(outptr0 + 24, _suma);
+            //                     vst1q_s32(outptr0 + 28, _sumb);
+            //                     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum5);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 8, _sum6);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 12, _sum7);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 16, _sumc);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 20, _sumd);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 24, _sume);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 28, _sumf);
+            //                     outptr0 += 32;
+            //                 }
+            //                 if (out_elempack == 1)
+            //                 {
+            //                     // to
+            //                     //      a0 a1 a2 a3
+            //                     //      a4 a5 a6 a7
+            //                     //      b0 b1 b2 b3
+            //                     //      b4 b5 b6 b7
+            //                     //      c0 c1 c2 c3
+            //                     //      c4 c5 c6 c7
+            //                     //      d0 d1 d2 d3
+            //                     //      d4 d5 d6 d7
+            //                     //      e0 e1 e2 e3
+            //                     //      e4 e5 e6 e7
+            //                     //      f0 f1 f2 f3
+            //                     //      f4 f5 f6 f7
+            //                     //      g0 g1 g2 g3
+            //                     //      g4 g5 g6 g7
+            //                     //      h0 h1 h2 h3
+            //                     //      h4 h5 h6 h7
+            //                     {
+            //                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
+            //                         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum3);
+            //                         int32x4x2_t _t2 = vzipq_s32(_sum8, _sum9);
+            //                         int32x4x2_t _t3 = vzipq_s32(_suma, _sumb);
+            //                         int32x4x2_t _t4 = vzipq_s32(_sum4, _sum5);
+            //                         int32x4x2_t _t5 = vzipq_s32(_sum6, _sum7);
+            //                         int32x4x2_t _t6 = vzipq_s32(_sumc, _sumd);
+            //                         int32x4x2_t _t7 = vzipq_s32(_sume, _sumf);
+            //                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                         _sum4 = vcombine_s32(vget_low_s32(_t0.val[1]), vget_low_s32(_t1.val[1]));
+            //                         _sum5 = vcombine_s32(vget_low_s32(_t2.val[1]), vget_low_s32(_t3.val[1]));
+            //                         _sum6 = vcombine_s32(vget_high_s32(_t0.val[1]), vget_high_s32(_t1.val[1]));
+            //                         _sum7 = vcombine_s32(vget_high_s32(_t2.val[1]), vget_high_s32(_t3.val[1]));
+            //                         _sum8 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
+            //                         _sum9 = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
+            //                         _suma = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
+            //                         _sumb = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
+            //                         _sumc = vcombine_s32(vget_low_s32(_t4.val[1]), vget_low_s32(_t5.val[1]));
+            //                         _sumd = vcombine_s32(vget_low_s32(_t6.val[1]), vget_low_s32(_t7.val[1]));
+            //                         _sume = vcombine_s32(vget_high_s32(_t4.val[1]), vget_high_s32(_t5.val[1]));
+            //                         _sumf = vcombine_s32(vget_high_s32(_t6.val[1]), vget_high_s32(_t7.val[1]));
+            //                     }
+            //
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + out_hstep, _sum2);
+            //                     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
+            //                     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
+            //                     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
+            //                     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
+            //                     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
+            //                     vst1q_s32(outptr0 + out_hstep * 4, _sum8);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum9);
+            //                     vst1q_s32(outptr0 + out_hstep * 5, _suma);
+            //                     vst1q_s32(outptr0 + out_hstep * 5 + 4, _sumb);
+            //                     vst1q_s32(outptr0 + out_hstep * 6, _sumc);
+            //                     vst1q_s32(outptr0 + out_hstep * 6 + 4, _sumd);
+            //                     vst1q_s32(outptr0 + out_hstep * 7, _sume);
+            //                     vst1q_s32(outptr0 + out_hstep * 7 + 4, _sumf);
+            //                     outptr0 += 8;
+            //                 }
+            // #else  // __ARM_FEATURE_DOTPROD
+            //
+            //                 // from
+            //                 //      a0 b1 c2 d3
+            //                 //      e4 f5 g6 h7
+            //                 //      e0 f1 g2 h3
+            //                 //      a4 b5 c6 d7
+            //                 //      c0 d1 a2 b3
+            //                 //      g4 h5 e6 f7
+            //                 //      g0 h1 e2 f3
+            //                 //      c4 d5 a6 b7
+            //                 //      a3 b2 c1 d0
+            //                 //      e7 f6 g5 h4
+            //                 //      e3 f2 g1 h0
+            //                 //      a7 b6 c5 d4
+            //                 //      c3 d2 a1 b0
+            //                 //      g7 h6 e5 f4
+            //                 //      g3 h2 e1 f0
+            //                 //      c7 d6 a5 b4
+            //                 if (out_elempack == 8)
+            //                 {
+            //                     // to
+            //                     //      a0 b0 c0 d0
+            //                     //      e0 f0 g0 h0
+            //                     //      a1 b1 c1 d1
+            //                     //      e1 f1 g1 h1
+            //                     //      a2 b2 c2 d2
+            //                     //      e2 f2 g2 h2
+            //                     //      a3 b3 c3 d3
+            //                     //      e3 f3 g3 h3
+            //                     //      a4 b4 c4 d4
+            //                     //      e4 f4 g4 h4
+            //                     //      a5 b5 c5 d5
+            //                     //      e5 f5 g5 h5
+            //                     //      a6 b6 c6 d6
+            //                     //      e6 f6 g6 h6
+            //                     //      a7 b7 c7 d7
+            //                     //      e7 f7 g7 h7
+            //                     {
+            //                         _sum8 = vrev64q_s32(_sum8);
+            //                         _sum9 = vrev64q_s32(_sum9);
+            //                         _suma = vrev64q_s32(_suma);
+            //                         _sumb = vrev64q_s32(_sumb);
+            //                         _sumc = vrev64q_s32(_sumc);
+            //                         _sumd = vrev64q_s32(_sumd);
+            //                         _sume = vrev64q_s32(_sume);
+            //                         _sumf = vrev64q_s32(_sumf);
+            //                         _sum8 = vextq_s32(_sum8, _sum8, 2);
+            //                         _sum9 = vextq_s32(_sum9, _sum9, 2);
+            //                         _suma = vextq_s32(_suma, _suma, 2);
+            //                         _sumb = vextq_s32(_sumb, _sumb, 2);
+            //                         _sumc = vextq_s32(_sumc, _sumc, 2);
+            //                         _sumd = vextq_s32(_sumd, _sumd, 2);
+            //                         _sume = vextq_s32(_sume, _sume, 2);
+            //                         _sumf = vextq_s32(_sumf, _sumf, 2);
+            //                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sumc);
+            //                         int32x4x2_t _t1 = vzipq_s32(_sum4, _sum8);
+            //                         int32x4x2_t _t2 = vzipq_s32(_sum2, _sume);
+            //                         int32x4x2_t _t3 = vzipq_s32(_sum6, _suma);
+            //                         int32x4x2_t _t4 = vzipq_s32(_sum3, _sumf);
+            //                         int32x4x2_t _t5 = vzipq_s32(_sum7, _sumb);
+            //                         int32x4x2_t _t6 = vzipq_s32(_sum1, _sumd);
+            //                         int32x4x2_t _t7 = vzipq_s32(_sum5, _sum9);
+            //                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                         _sum8 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
+            //                         _sum9 = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
+            //                         _suma = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
+            //                         _sumb = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
+            //                         _sumc = vcombine_s32(vget_low_s32(_t5.val[1]), vget_low_s32(_t4.val[1]));
+            //                         _sumd = vcombine_s32(vget_low_s32(_t7.val[1]), vget_low_s32(_t6.val[1]));
+            //                         _sume = vcombine_s32(vget_high_s32(_t5.val[1]), vget_high_s32(_t4.val[1]));
+            //                         _sumf = vcombine_s32(vget_high_s32(_t7.val[1]), vget_high_s32(_t6.val[1]));
+            //                         _sum2 = vrev64q_s32(_sum2);
+            //                         _sum3 = vrev64q_s32(_sum3);
+            //                         _sum6 = vrev64q_s32(_sum6);
+            //                         _sum7 = vrev64q_s32(_sum7);
+            //                         _suma = vrev64q_s32(_suma);
+            //                         _sumb = vrev64q_s32(_sumb);
+            //                         _sume = vrev64q_s32(_sume);
+            //                         _sumf = vrev64q_s32(_sumf);
+            //                     }
+            //
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     vst1q_s32(outptr0 + 16, _sum4);
+            //                     vst1q_s32(outptr0 + 20, _sum5);
+            //                     vst1q_s32(outptr0 + 24, _sum6);
+            //                     vst1q_s32(outptr0 + 28, _sum7);
+            //                     vst1q_s32(outptr0 + 32, _sum8);
+            //                     vst1q_s32(outptr0 + 36, _sum9);
+            //                     vst1q_s32(outptr0 + 40, _suma);
+            //                     vst1q_s32(outptr0 + 44, _sumb);
+            //                     vst1q_s32(outptr0 + 48, _sumc);
+            //                     vst1q_s32(outptr0 + 52, _sumd);
+            //                     vst1q_s32(outptr0 + 56, _sume);
+            //                     vst1q_s32(outptr0 + 60, _sumf);
+            //                     outptr0 += 64;
+            //                 }
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     // to
+            //                     //      a0 b0 c0 d0
+            //                     //      a1 b1 c1 d1
+            //                     //      a2 b2 c2 d2
+            //                     //      a3 b3 c3 d3
+            //                     //      a4 b4 c4 d4
+            //                     //      a5 b5 c5 d5
+            //                     //      a6 b6 c6 d6
+            //                     //      a7 b7 c7 d7
+            //                     //      e0 f0 g0 h0
+            //                     //      e1 f1 g1 h1
+            //                     //      e2 f2 g2 h2
+            //                     //      e3 f3 g3 h3
+            //                     //      e4 f4 g4 h4
+            //                     //      e5 f5 g5 h5
+            //                     //      e6 f6 g6 h6
+            //                     //      e7 f7 g7 h7
+            //                     {
+            //                         _sum8 = vrev64q_s32(_sum8);
+            //                         _sum9 = vrev64q_s32(_sum9);
+            //                         _suma = vrev64q_s32(_suma);
+            //                         _sumb = vrev64q_s32(_sumb);
+            //                         _sumc = vrev64q_s32(_sumc);
+            //                         _sumd = vrev64q_s32(_sumd);
+            //                         _sume = vrev64q_s32(_sume);
+            //                         _sumf = vrev64q_s32(_sumf);
+            //                         _sum8 = vextq_s32(_sum8, _sum8, 2);
+            //                         _sum9 = vextq_s32(_sum9, _sum9, 2);
+            //                         _suma = vextq_s32(_suma, _suma, 2);
+            //                         _sumb = vextq_s32(_sumb, _sumb, 2);
+            //                         _sumc = vextq_s32(_sumc, _sumc, 2);
+            //                         _sumd = vextq_s32(_sumd, _sumd, 2);
+            //                         _sume = vextq_s32(_sume, _sume, 2);
+            //                         _sumf = vextq_s32(_sumf, _sumf, 2);
+            //                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sumc);
+            //                         int32x4x2_t _t1 = vzipq_s32(_sum4, _sum8);
+            //                         int32x4x2_t _t2 = vzipq_s32(_sum2, _sume);
+            //                         int32x4x2_t _t3 = vzipq_s32(_sum6, _suma);
+            //                         int32x4x2_t _t4 = vzipq_s32(_sum3, _sumf);
+            //                         int32x4x2_t _t5 = vzipq_s32(_sum7, _sumb);
+            //                         int32x4x2_t _t6 = vzipq_s32(_sum1, _sumd);
+            //                         int32x4x2_t _t7 = vzipq_s32(_sum5, _sum9);
+            //                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                         _sum4 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
+            //                         _sum5 = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
+            //                         _sum6 = vcombine_s32(vget_low_s32(_t5.val[1]), vget_low_s32(_t4.val[1]));
+            //                         _sum7 = vcombine_s32(vget_high_s32(_t5.val[1]), vget_high_s32(_t4.val[1]));
+            //                         _sum8 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                         _sum9 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                         _suma = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                         _sumb = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                         _sumc = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
+            //                         _sumd = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
+            //                         _sume = vcombine_s32(vget_low_s32(_t7.val[1]), vget_low_s32(_t6.val[1]));
+            //                         _sumf = vcombine_s32(vget_high_s32(_t7.val[1]), vget_high_s32(_t6.val[1]));
+            //                         _sum1 = vrev64q_s32(_sum1);
+            //                         _sum3 = vrev64q_s32(_sum3);
+            //                         _sum5 = vrev64q_s32(_sum5);
+            //                         _sum7 = vrev64q_s32(_sum7);
+            //                         _sum9 = vrev64q_s32(_sum9);
+            //                         _sumb = vrev64q_s32(_sumb);
+            //                         _sumd = vrev64q_s32(_sumd);
+            //                         _sumf = vrev64q_s32(_sumf);
+            //                     }
+            //
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     vst1q_s32(outptr0 + 16, _sum4);
+            //                     vst1q_s32(outptr0 + 20, _sum5);
+            //                     vst1q_s32(outptr0 + 24, _sum6);
+            //                     vst1q_s32(outptr0 + 28, _sum7);
+            //                     vst1q_s32(outptr0 + out_hstep * 4, _sum8);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum9);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 8, _suma);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 12, _sumb);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 16, _sumc);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 20, _sumd);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 24, _sume);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 28, _sumf);
+            //                     outptr0 += 32;
+            //                 }
+            //                 if (out_elempack == 1)
+            //                 {
+            //                     // to
+            //                     //      a0 a1 a2 a3
+            //                     //      a4 a5 a6 a7
+            //                     //      b0 b1 b2 b3
+            //                     //      b4 b5 b6 b7
+            //                     //      c0 c1 c2 c3
+            //                     //      c4 c5 c6 c7
+            //                     //      d0 d1 d2 d3
+            //                     //      d4 d5 d6 d7
+            //                     //      e0 e1 e2 e3
+            //                     //      e4 e5 e6 e7
+            //                     //      f0 f1 f2 f3
+            //                     //      f4 f5 f6 f7
+            //                     //      g0 g1 g2 g3
+            //                     //      g4 g5 g6 g7
+            //                     //      h0 h1 h2 h3
+            //                     //      h4 h5 h6 h7
+            //                     {
+            //                         _sum4 = vextq_s32(_sum4, _sum4, 2);
+            //                         _sum5 = vextq_s32(_sum5, _sum5, 2);
+            //                         _sum6 = vextq_s32(_sum6, _sum6, 2);
+            //                         _sum7 = vextq_s32(_sum7, _sum7, 2);
+            //                         _sumc = vextq_s32(_sumc, _sumc, 2);
+            //                         _sumd = vextq_s32(_sumd, _sumd, 2);
+            //                         _sume = vextq_s32(_sume, _sume, 2);
+            //                         _sumf = vextq_s32(_sumf, _sumf, 2);
+            //                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sumc);
+            //                         int32x4x2_t _t1 = vzipq_s32(_sum4, _sum8);
+            //                         int32x4x2_t _t2 = vzipq_s32(_sum3, _sumf);
+            //                         int32x4x2_t _t3 = vzipq_s32(_sum7, _sumb);
+            //                         int32x4x2_t _t4 = vzipq_s32(_sum2, _sume);
+            //                         int32x4x2_t _t5 = vzipq_s32(_sum6, _suma);
+            //                         int32x4x2_t _t6 = vzipq_s32(_sum1, _sumd);
+            //                         int32x4x2_t _t7 = vzipq_s32(_sum5, _sum9);
+            //                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                         _sum8 = vcombine_s32(vget_low_s32(_t4.val[0]), vget_low_s32(_t5.val[0]));
+            //                         _sum9 = vcombine_s32(vget_low_s32(_t6.val[0]), vget_low_s32(_t7.val[0]));
+            //                         _suma = vcombine_s32(vget_high_s32(_t4.val[0]), vget_high_s32(_t5.val[0]));
+            //                         _sumb = vcombine_s32(vget_high_s32(_t6.val[0]), vget_high_s32(_t7.val[0]));
+            //                         _sumc = vcombine_s32(vget_low_s32(_t5.val[1]), vget_low_s32(_t4.val[1]));
+            //                         _sumd = vcombine_s32(vget_low_s32(_t7.val[1]), vget_low_s32(_t6.val[1]));
+            //                         _sume = vcombine_s32(vget_high_s32(_t5.val[1]), vget_high_s32(_t4.val[1]));
+            //                         _sumf = vcombine_s32(vget_high_s32(_t7.val[1]), vget_high_s32(_t6.val[1]));
+            //                         _sum2 = vrev64q_s32(_sum2);
+            //                         _sum3 = vrev64q_s32(_sum3);
+            //                         _sum6 = vrev64q_s32(_sum6);
+            //                         _sum7 = vrev64q_s32(_sum7);
+            //                         _suma = vrev64q_s32(_suma);
+            //                         _sumb = vrev64q_s32(_sumb);
+            //                         _sume = vrev64q_s32(_sume);
+            //                         _sumf = vrev64q_s32(_sumf);
+            //                     }
+            //
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + out_hstep, _sum2);
+            //                     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
+            //                     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
+            //                     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
+            //                     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
+            //                     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
+            //                     vst1q_s32(outptr0 + out_hstep * 4, _sum8);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum9);
+            //                     vst1q_s32(outptr0 + out_hstep * 5, _suma);
+            //                     vst1q_s32(outptr0 + out_hstep * 5 + 4, _sumb);
+            //                     vst1q_s32(outptr0 + out_hstep * 6, _sumc);
+            //                     vst1q_s32(outptr0 + out_hstep * 6 + 4, _sumd);
+            //                     vst1q_s32(outptr0 + out_hstep * 7, _sume);
+            //                     vst1q_s32(outptr0 + out_hstep * 7 + 4, _sumf);
+            //                     outptr0 += 8;
+            //                 }
+            // #endif // __ARM_FEATURE_DOTPROD
+            //             }
+            //             else
             {
                 vst1q_s32(outptr, _sum0);
                 vst1q_s32(outptr + 4, _sum1);
@@ -6268,8 +6268,8 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 : "0"(outptr),
                 "1"(pA),
                 "2"(pB),
-                "r"(max_kk),       // %6
-                "r"(k)             // %7
+                "r"(max_kk), // %6
+                "r"(k)       // %7
                 : "cc", "memory", "r4", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15");
 #endif // __aarch64__
 #else  // NCNN_GNU_INLINE_ASM
@@ -6562,255 +6562,255 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 pB += 4;
             }
 
-//             if (k_end)
-//             {
-// #if __ARM_FEATURE_DOTPROD
-//                 // from
-//                 //      a0 b0 c0 d0
-//                 //      a1 b1 c1 d1
-//                 //      a2 b2 c2 d2
-//                 //      a3 b3 c3 d3
-//                 //      e0 f0 g0 h0
-//                 //      e1 f1 g1 h1
-//                 //      e2 f2 g2 h2
-//                 //      e3 f3 g3 h3
-//                 if (out_elempack == 8)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum4);
-//                     vst1q_s32(outptr0 + 8, _sum1);
-//                     vst1q_s32(outptr0 + 12, _sum5);
-//                     vst1q_s32(outptr0 + 16, _sum2);
-//                     vst1q_s32(outptr0 + 20, _sum6);
-//                     vst1q_s32(outptr0 + 24, _sum3);
-//                     vst1q_s32(outptr0 + 28, _sum7);
-//                     outptr0 += 32;
-//                 }
-//                 if (out_elempack == 4)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum5);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 8, _sum6);
-//                     vst1q_s32(outptr0 + out_hstep * 4 + 12, _sum7);
-//                     outptr0 += 16;
-//                 }
-//                 if (out_elempack == 1)
-//                 {
-//                     // to
-//                     //      a0 a1 a2 a3
-//                     //      b0 b1 b2 b3
-//                     //      c0 c1 c2 c3
-//                     //      d0 d1 d2 d3
-//                     //      e0 e1 e2 e3
-//                     //      f0 f1 f2 f3
-//                     //      g0 g1 g2 g3
-//                     //      h0 h1 h2 h3
-//                     {
-//                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
-//                         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum3);
-//                         int32x4x2_t _t2 = vzipq_s32(_sum4, _sum5);
-//                         int32x4x2_t _t3 = vzipq_s32(_sum6, _sum7);
-//                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                         _sum2 = vcombine_s32(vget_low_s32(_t0.val[1]), vget_low_s32(_t1.val[1]));
-//                         _sum3 = vcombine_s32(vget_high_s32(_t0.val[1]), vget_high_s32(_t1.val[1]));
-//                         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                         _sum6 = vcombine_s32(vget_low_s32(_t2.val[1]), vget_low_s32(_t3.val[1]));
-//                         _sum7 = vcombine_s32(vget_high_s32(_t2.val[1]), vget_high_s32(_t3.val[1]));
-//                     }
-//
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + out_hstep, _sum1);
-//                     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
-//                     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
-//                     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
-//                     vst1q_s32(outptr0 + out_hstep * 5, _sum5);
-//                     vst1q_s32(outptr0 + out_hstep * 6, _sum6);
-//                     vst1q_s32(outptr0 + out_hstep * 7, _sum7);
-//                     outptr0 += 4;
-//                 }
-// #else  // __ARM_FEATURE_DOTPROD
-//
-//                 // from
-//                 //      a0 b1 c2 d3
-//                 //      e0 f1 g2 h3
-//                 //      c0 d1 a2 b3
-//                 //      g0 h1 e2 f3
-//                 //      a3 b2 c1 d0
-//                 //      e3 f2 g1 h0
-//                 //      c3 d2 a1 b0
-//                 //      g3 h2 e1 f0
-//                 // if (out_elempack == 8)
-//                 // {
-//                 //     // to
-//                 //     //      a0 b0 c0 d0
-//                 //     //      e0 f0 g0 h0
-//                 //     //      a1 b1 c1 d1
-//                 //     //      e1 f1 g1 h1
-//                 //     //      a2 b2 c2 d2
-//                 //     //      e2 f2 g2 h2
-//                 //     //      a3 b3 c3 d3
-//                 //     //      e3 f3 g3 h3
-//                 //     {
-//                 //         _sum4 = vrev64q_s32(_sum4);
-//                 //         _sum5 = vrev64q_s32(_sum5);
-//                 //         _sum6 = vrev64q_s32(_sum6);
-//                 //         _sum7 = vrev64q_s32(_sum7);
-//                 //         _sum4 = vextq_s32(_sum4, _sum4, 2);
-//                 //         _sum5 = vextq_s32(_sum5, _sum5, 2);
-//                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
-//                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
-//                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
-//                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                 //         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                 //         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                 //         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                 //         _sum2 = vrev64q_s32(_sum2);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         _sum6 = vrev64q_s32(_sum6);
-//                 //         _sum7 = vrev64q_s32(_sum7);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + 8, _sum2);
-//                 //     vst1q_s32(outptr0 + 12, _sum3);
-//                 //     vst1q_s32(outptr0 + 16, _sum4);
-//                 //     vst1q_s32(outptr0 + 20, _sum5);
-//                 //     vst1q_s32(outptr0 + 24, _sum6);
-//                 //     vst1q_s32(outptr0 + 28, _sum7);
-//                 //     outptr0 += 32;
-//                 // }
-//                 // if (out_elempack == 4)
-//                 // {
-//                 //     // to
-//                 //     //      a0 b0 c0 d0
-//                 //     //      a1 b1 c1 d1
-//                 //     //      a2 b2 c2 d2
-//                 //     //      a3 b3 c3 d3
-//                 //     //      e0 f0 g0 h0
-//                 //     //      e1 f1 g1 h1
-//                 //     //      e2 f2 g2 h2
-//                 //     //      e3 f3 g3 h3
-//                 //     {
-//                 //         _sum4 = vrev64q_s32(_sum4);
-//                 //         _sum5 = vrev64q_s32(_sum5);
-//                 //         _sum6 = vrev64q_s32(_sum6);
-//                 //         _sum7 = vrev64q_s32(_sum7);
-//                 //         _sum4 = vextq_s32(_sum4, _sum4, 2);
-//                 //         _sum5 = vextq_s32(_sum5, _sum5, 2);
-//                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
-//                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
-//                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
-//                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                 //         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                 //         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                 //         _sum6 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         _sum5 = vrev64q_s32(_sum5);
-//                 //         _sum7 = vrev64q_s32(_sum7);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + 8, _sum2);
-//                 //     vst1q_s32(outptr0 + 12, _sum3);
-//                 //     // vst1q_s32(outptr0 + out_hstep * 4, _sum4);
-//                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum5);
-//                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 8, _sum6);
-//                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 12, _sum7);
-//                 //     // outptr0 += 16;
-//                 //     vst1q_s32(outptr0 + 16, _sum4);//TODO
-//                 //     vst1q_s32(outptr0 + 20, _sum5);
-//                 //     vst1q_s32(outptr0 + 24, _sum6);
-//                 //     vst1q_s32(outptr0 + 28, _sum7);
-//                 //     outptr0 += 32;
-//                 // }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 a2 a3
-//                 //     //      b0 b1 b2 b3
-//                 //     //      c0 c1 c2 c3
-//                 //     //      d0 d1 d2 d3
-//                 //     //      e0 e1 e2 e3
-//                 //     //      f0 f1 f2 f3
-//                 //     //      g0 g1 g2 g3
-//                 //     //      h0 h1 h2 h3
-//                 //     {
-//                 //         _sum2 = vextq_s32(_sum2, _sum2, 2);
-//                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
-//                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
-//                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
-//                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
-//                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                 //         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                 //         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                 //         _sum6 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         _sum5 = vrev64q_s32(_sum5);
-//                 //         _sum7 = vrev64q_s32(_sum7);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
-//                 //     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
-//                 //     vst1q_s32(outptr0 + out_hstep * 5, _sum5);
-//                 //     vst1q_s32(outptr0 + out_hstep * 6, _sum6);
-//                 //     vst1q_s32(outptr0 + out_hstep * 7, _sum7);
-//                 //     outptr0 += 4;
-//                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
-//                 //     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
-//                 //     vst1q_s32(outptr0 + out_hstep * 5, _sum5);
-//                 //     vst1q_s32(outptr0 + out_hstep * 6, _sum6);
-//                 //     vst1q_s32(outptr0 + out_hstep * 7, _sum7);
-//                 //     outptr0 += 4;
-//                 // }
-//
-//                 vst1q_s32(outptr0, _sum0);
-//                 vst1q_s32(outptr0 + 4, _sum1);
-//                 vst1q_s32(outptr0 + 8, _sum2);
-//                 vst1q_s32(outptr0 + 12, _sum3);
-//                 vst1q_s32(outptr0 + 16, _sum4);
-//                 vst1q_s32(outptr0 + 20, _sum5);
-//                 vst1q_s32(outptr0 + 24, _sum6);
-//                 vst1q_s32(outptr0 + 28, _sum7);
-//                 outptr0 += 32;
-// #endif // __ARM_FEATURE_DOTPROD
-//             }
-//             else
+            //             if (k_end)
+            //             {
+            // #if __ARM_FEATURE_DOTPROD
+            //                 // from
+            //                 //      a0 b0 c0 d0
+            //                 //      a1 b1 c1 d1
+            //                 //      a2 b2 c2 d2
+            //                 //      a3 b3 c3 d3
+            //                 //      e0 f0 g0 h0
+            //                 //      e1 f1 g1 h1
+            //                 //      e2 f2 g2 h2
+            //                 //      e3 f3 g3 h3
+            //                 if (out_elempack == 8)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum4);
+            //                     vst1q_s32(outptr0 + 8, _sum1);
+            //                     vst1q_s32(outptr0 + 12, _sum5);
+            //                     vst1q_s32(outptr0 + 16, _sum2);
+            //                     vst1q_s32(outptr0 + 20, _sum6);
+            //                     vst1q_s32(outptr0 + 24, _sum3);
+            //                     vst1q_s32(outptr0 + 28, _sum7);
+            //                     outptr0 += 32;
+            //                 }
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum5);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 8, _sum6);
+            //                     vst1q_s32(outptr0 + out_hstep * 4 + 12, _sum7);
+            //                     outptr0 += 16;
+            //                 }
+            //                 if (out_elempack == 1)
+            //                 {
+            //                     // to
+            //                     //      a0 a1 a2 a3
+            //                     //      b0 b1 b2 b3
+            //                     //      c0 c1 c2 c3
+            //                     //      d0 d1 d2 d3
+            //                     //      e0 e1 e2 e3
+            //                     //      f0 f1 f2 f3
+            //                     //      g0 g1 g2 g3
+            //                     //      h0 h1 h2 h3
+            //                     {
+            //                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
+            //                         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum3);
+            //                         int32x4x2_t _t2 = vzipq_s32(_sum4, _sum5);
+            //                         int32x4x2_t _t3 = vzipq_s32(_sum6, _sum7);
+            //                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                         _sum2 = vcombine_s32(vget_low_s32(_t0.val[1]), vget_low_s32(_t1.val[1]));
+            //                         _sum3 = vcombine_s32(vget_high_s32(_t0.val[1]), vget_high_s32(_t1.val[1]));
+            //                         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                         _sum6 = vcombine_s32(vget_low_s32(_t2.val[1]), vget_low_s32(_t3.val[1]));
+            //                         _sum7 = vcombine_s32(vget_high_s32(_t2.val[1]), vget_high_s32(_t3.val[1]));
+            //                     }
+            //
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + out_hstep, _sum1);
+            //                     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
+            //                     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
+            //                     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
+            //                     vst1q_s32(outptr0 + out_hstep * 5, _sum5);
+            //                     vst1q_s32(outptr0 + out_hstep * 6, _sum6);
+            //                     vst1q_s32(outptr0 + out_hstep * 7, _sum7);
+            //                     outptr0 += 4;
+            //                 }
+            // #else  // __ARM_FEATURE_DOTPROD
+            //
+            //                 // from
+            //                 //      a0 b1 c2 d3
+            //                 //      e0 f1 g2 h3
+            //                 //      c0 d1 a2 b3
+            //                 //      g0 h1 e2 f3
+            //                 //      a3 b2 c1 d0
+            //                 //      e3 f2 g1 h0
+            //                 //      c3 d2 a1 b0
+            //                 //      g3 h2 e1 f0
+            //                 // if (out_elempack == 8)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 b0 c0 d0
+            //                 //     //      e0 f0 g0 h0
+            //                 //     //      a1 b1 c1 d1
+            //                 //     //      e1 f1 g1 h1
+            //                 //     //      a2 b2 c2 d2
+            //                 //     //      e2 f2 g2 h2
+            //                 //     //      a3 b3 c3 d3
+            //                 //     //      e3 f3 g3 h3
+            //                 //     {
+            //                 //         _sum4 = vrev64q_s32(_sum4);
+            //                 //         _sum5 = vrev64q_s32(_sum5);
+            //                 //         _sum6 = vrev64q_s32(_sum6);
+            //                 //         _sum7 = vrev64q_s32(_sum7);
+            //                 //         _sum4 = vextq_s32(_sum4, _sum4, 2);
+            //                 //         _sum5 = vextq_s32(_sum5, _sum5, 2);
+            //                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
+            //                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
+            //                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
+            //                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                 //         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                 //         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                 //         _sum2 = vrev64q_s32(_sum2);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         _sum6 = vrev64q_s32(_sum6);
+            //                 //         _sum7 = vrev64q_s32(_sum7);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + 8, _sum2);
+            //                 //     vst1q_s32(outptr0 + 12, _sum3);
+            //                 //     vst1q_s32(outptr0 + 16, _sum4);
+            //                 //     vst1q_s32(outptr0 + 20, _sum5);
+            //                 //     vst1q_s32(outptr0 + 24, _sum6);
+            //                 //     vst1q_s32(outptr0 + 28, _sum7);
+            //                 //     outptr0 += 32;
+            //                 // }
+            //                 // if (out_elempack == 4)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 b0 c0 d0
+            //                 //     //      a1 b1 c1 d1
+            //                 //     //      a2 b2 c2 d2
+            //                 //     //      a3 b3 c3 d3
+            //                 //     //      e0 f0 g0 h0
+            //                 //     //      e1 f1 g1 h1
+            //                 //     //      e2 f2 g2 h2
+            //                 //     //      e3 f3 g3 h3
+            //                 //     {
+            //                 //         _sum4 = vrev64q_s32(_sum4);
+            //                 //         _sum5 = vrev64q_s32(_sum5);
+            //                 //         _sum6 = vrev64q_s32(_sum6);
+            //                 //         _sum7 = vrev64q_s32(_sum7);
+            //                 //         _sum4 = vextq_s32(_sum4, _sum4, 2);
+            //                 //         _sum5 = vextq_s32(_sum5, _sum5, 2);
+            //                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
+            //                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
+            //                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
+            //                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                 //         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                 //         _sum6 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         _sum5 = vrev64q_s32(_sum5);
+            //                 //         _sum7 = vrev64q_s32(_sum7);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + 8, _sum2);
+            //                 //     vst1q_s32(outptr0 + 12, _sum3);
+            //                 //     // vst1q_s32(outptr0 + out_hstep * 4, _sum4);
+            //                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum5);
+            //                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 8, _sum6);
+            //                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 12, _sum7);
+            //                 //     // outptr0 += 16;
+            //                 //     vst1q_s32(outptr0 + 16, _sum4);//TODO
+            //                 //     vst1q_s32(outptr0 + 20, _sum5);
+            //                 //     vst1q_s32(outptr0 + 24, _sum6);
+            //                 //     vst1q_s32(outptr0 + 28, _sum7);
+            //                 //     outptr0 += 32;
+            //                 // }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 a2 a3
+            //                 //     //      b0 b1 b2 b3
+            //                 //     //      c0 c1 c2 c3
+            //                 //     //      d0 d1 d2 d3
+            //                 //     //      e0 e1 e2 e3
+            //                 //     //      f0 f1 f2 f3
+            //                 //     //      g0 g1 g2 g3
+            //                 //     //      h0 h1 h2 h3
+            //                 //     {
+            //                 //         _sum2 = vextq_s32(_sum2, _sum2, 2);
+            //                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
+            //                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
+            //                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
+            //                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
+            //                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                 //         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                 //         _sum6 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         _sum5 = vrev64q_s32(_sum5);
+            //                 //         _sum7 = vrev64q_s32(_sum7);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 5, _sum5);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 6, _sum6);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 7, _sum7);
+            //                 //     outptr0 += 4;
+            //                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 4, _sum4);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 5, _sum5);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 6, _sum6);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 7, _sum7);
+            //                 //     outptr0 += 4;
+            //                 // }
+            //
+            //                 vst1q_s32(outptr0, _sum0);
+            //                 vst1q_s32(outptr0 + 4, _sum1);
+            //                 vst1q_s32(outptr0 + 8, _sum2);
+            //                 vst1q_s32(outptr0 + 12, _sum3);
+            //                 vst1q_s32(outptr0 + 16, _sum4);
+            //                 vst1q_s32(outptr0 + 20, _sum5);
+            //                 vst1q_s32(outptr0 + 24, _sum6);
+            //                 vst1q_s32(outptr0 + 28, _sum7);
+            //                 outptr0 += 32;
+            // #endif // __ARM_FEATURE_DOTPROD
+            //             }
+            //             else
             {
                 vst1q_s32(outptr, _sum0);
                 vst1q_s32(outptr + 4, _sum1);
@@ -7026,154 +7026,154 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 pB += 2;
             }
 
-//             if (k_end)
-//             {
-// #if __ARM_FEATURE_DOTPROD
-//                 // from
-//                 //      a0 b0 c0 d0
-//                 //      a1 b1 c1 d1
-//                 //      e0 f0 g0 h0
-//                 //      e1 f1 g1 h1
-//                 if (out_elempack == 8)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum2);
-//                     vst1q_s32(outptr0 + 8, _sum1);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     outptr0 += 16;
-//                 }
-//                 // if (out_elempack == 4)
-//                 // {
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep * 4, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum3);
-//                 //     outptr0 += 8;
-//                 // }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 b0 b1
-//                 //     //      c0 c1 d0 d1
-//                 //     //      e0 e1 f0 f1
-//                 //     //      g0 g1 h0 h1
-//                 //     {
-//                 //         int32x4x2_t _sum02 = vzipq_s32(_sum0, _sum1);
-//                 //         int32x4x2_t _sum13 = vzipq_s32(_sum2, _sum3);
-//                 //         _sum0 = _sum02.val[0];
-//                 //         _sum1 = _sum02.val[1];
-//                 //         _sum2 = _sum13.val[0];
-//                 //         _sum3 = _sum13.val[1];
-//                 //     }
-//                 //
-//                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep, vget_high_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep * 2, vget_low_s32(_sum1));
-//                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
-//                 //     vst1_s32(outptr0 + out_hstep * 4, vget_low_s32(_sum2));
-//                 //     vst1_s32(outptr0 + out_hstep * 5, vget_high_s32(_sum2));
-//                 //     vst1_s32(outptr0 + out_hstep * 6, vget_low_s32(_sum3));
-//                 //     vst1_s32(outptr0 + out_hstep * 7, vget_high_s32(_sum3));
-//                 //     outptr0 += 2;
-//                 // }
-// #else  // __ARM_FEATURE_DOTPROD
-//
-//                 // from
-//                 //      a0 b1 c0 d1
-//                 //      e0 f1 g0 h1
-//                 //      a1 b0 c1 d0
-//                 //      e1 f0 g1 h0
-//                 // if (out_elempack == 8)
-//                 // {
-//                 //     // to
-//                 //     //      a0 b0 c0 d0
-//                 //     //      e0 f0 g0 h0
-//                 //     //      a1 b1 c1 d1
-//                 //     //      e1 f1 g1 h1
-//                 //     {
-//                 //         _sum2 = vrev64q_s32(_sum2);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum2);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum3);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
-//                 //         _sum1 = vcombine_s32(vget_low_s32(_t1.val[0]), vget_low_s32(_t1.val[1]));
-//                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[0]), vget_high_s32(_t1.val[1]));
-//                 //         _sum2 = vrev64q_s32(_sum2);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + 8, _sum2);
-//                 //     vst1q_s32(outptr0 + 12, _sum3);
-//                 //     outptr0 += 16;
-//                 // }
-//                 // if (out_elempack == 4)
-//                 // {
-//                 //     // to
-//                 //     //      a0 b0 c0 d0
-//                 //     //      a1 b1 c1 d1
-//                 //     //      e0 f0 g0 h0
-//                 //     //      e1 f1 g1 h1
-//                 //     {
-//                 //         _sum2 = vrev64q_s32(_sum2);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum2);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum3);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[0]), vget_low_s32(_t1.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[0]), vget_high_s32(_t1.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     // vst1q_s32(outptr0 + out_hstep * 4, _sum2);
-//                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum3);
-//                 //     // outptr0 += 8;
-//                 //     vst1q_s32(outptr0 + 8, _sum2);
-//                 //     vst1q_s32(outptr0 + 12, _sum3);
-//                 //     outptr0 += 16;
-//                 // }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 c0 c1
-//                 //     //      b0 b1 d0 d1
-//                 //     //      e0 e1 g0 g1
-//                 //     //      f0 f1 h0 h1
-//                 //     {
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum2);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum3);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[0]), vget_low_s32(_t1.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[0]), vget_high_s32(_t1.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //     }
-//                 //
-//                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep, vget_low_s32(_sum1));
-//                 //     vst1_s32(outptr0 + out_hstep * 2, vget_high_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
-//                 //     vst1_s32(outptr0 + out_hstep * 4, vget_low_s32(_sum2));
-//                 //     vst1_s32(outptr0 + out_hstep * 5, vget_low_s32(_sum3));
-//                 //     vst1_s32(outptr0 + out_hstep * 6, vget_high_s32(_sum2));
-//                 //     vst1_s32(outptr0 + out_hstep * 7, vget_high_s32(_sum3));
-//                 //     outptr0 += 2;
-//                 // }
-//                 vst1q_s32(outptr0, _sum0);
-//                 vst1q_s32(outptr0 + 4, _sum1);
-//                 vst1q_s32(outptr0 + 8, _sum2);
-//                 vst1q_s32(outptr0 + 12, _sum3);
-//                 outptr0 += 16;
-// #endif // __ARM_FEATURE_DOTPROD
-//             }
-//             else
+            //             if (k_end)
+            //             {
+            // #if __ARM_FEATURE_DOTPROD
+            //                 // from
+            //                 //      a0 b0 c0 d0
+            //                 //      a1 b1 c1 d1
+            //                 //      e0 f0 g0 h0
+            //                 //      e1 f1 g1 h1
+            //                 if (out_elempack == 8)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum2);
+            //                     vst1q_s32(outptr0 + 8, _sum1);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     outptr0 += 16;
+            //                 }
+            //                 // if (out_elempack == 4)
+            //                 // {
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 4, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum3);
+            //                 //     outptr0 += 8;
+            //                 // }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 b0 b1
+            //                 //     //      c0 c1 d0 d1
+            //                 //     //      e0 e1 f0 f1
+            //                 //     //      g0 g1 h0 h1
+            //                 //     {
+            //                 //         int32x4x2_t _sum02 = vzipq_s32(_sum0, _sum1);
+            //                 //         int32x4x2_t _sum13 = vzipq_s32(_sum2, _sum3);
+            //                 //         _sum0 = _sum02.val[0];
+            //                 //         _sum1 = _sum02.val[1];
+            //                 //         _sum2 = _sum13.val[0];
+            //                 //         _sum3 = _sum13.val[1];
+            //                 //     }
+            //                 //
+            //                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep, vget_high_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep * 2, vget_low_s32(_sum1));
+            //                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
+            //                 //     vst1_s32(outptr0 + out_hstep * 4, vget_low_s32(_sum2));
+            //                 //     vst1_s32(outptr0 + out_hstep * 5, vget_high_s32(_sum2));
+            //                 //     vst1_s32(outptr0 + out_hstep * 6, vget_low_s32(_sum3));
+            //                 //     vst1_s32(outptr0 + out_hstep * 7, vget_high_s32(_sum3));
+            //                 //     outptr0 += 2;
+            //                 // }
+            // #else  // __ARM_FEATURE_DOTPROD
+            //
+            //                 // from
+            //                 //      a0 b1 c0 d1
+            //                 //      e0 f1 g0 h1
+            //                 //      a1 b0 c1 d0
+            //                 //      e1 f0 g1 h0
+            //                 // if (out_elempack == 8)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 b0 c0 d0
+            //                 //     //      e0 f0 g0 h0
+            //                 //     //      a1 b1 c1 d1
+            //                 //     //      e1 f1 g1 h1
+            //                 //     {
+            //                 //         _sum2 = vrev64q_s32(_sum2);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum2);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum3);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum1 = vcombine_s32(vget_low_s32(_t1.val[0]), vget_low_s32(_t1.val[1]));
+            //                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[0]), vget_high_s32(_t1.val[1]));
+            //                 //         _sum2 = vrev64q_s32(_sum2);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + 8, _sum2);
+            //                 //     vst1q_s32(outptr0 + 12, _sum3);
+            //                 //     outptr0 += 16;
+            //                 // }
+            //                 // if (out_elempack == 4)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 b0 c0 d0
+            //                 //     //      a1 b1 c1 d1
+            //                 //     //      e0 f0 g0 h0
+            //                 //     //      e1 f1 g1 h1
+            //                 //     {
+            //                 //         _sum2 = vrev64q_s32(_sum2);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum2);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum3);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[0]), vget_low_s32(_t1.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[0]), vget_high_s32(_t1.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     // vst1q_s32(outptr0 + out_hstep * 4, _sum2);
+            //                 //     // vst1q_s32(outptr0 + out_hstep * 4 + 4, _sum3);
+            //                 //     // outptr0 += 8;
+            //                 //     vst1q_s32(outptr0 + 8, _sum2);
+            //                 //     vst1q_s32(outptr0 + 12, _sum3);
+            //                 //     outptr0 += 16;
+            //                 // }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 c0 c1
+            //                 //     //      b0 b1 d0 d1
+            //                 //     //      e0 e1 g0 g1
+            //                 //     //      f0 f1 h0 h1
+            //                 //     {
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum2);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum3);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[0]), vget_low_s32(_t1.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[0]), vget_high_s32(_t1.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //     }
+            //                 //
+            //                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep, vget_low_s32(_sum1));
+            //                 //     vst1_s32(outptr0 + out_hstep * 2, vget_high_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
+            //                 //     vst1_s32(outptr0 + out_hstep * 4, vget_low_s32(_sum2));
+            //                 //     vst1_s32(outptr0 + out_hstep * 5, vget_low_s32(_sum3));
+            //                 //     vst1_s32(outptr0 + out_hstep * 6, vget_high_s32(_sum2));
+            //                 //     vst1_s32(outptr0 + out_hstep * 7, vget_high_s32(_sum3));
+            //                 //     outptr0 += 2;
+            //                 // }
+            //                 vst1q_s32(outptr0, _sum0);
+            //                 vst1q_s32(outptr0 + 4, _sum1);
+            //                 vst1q_s32(outptr0 + 8, _sum2);
+            //                 vst1q_s32(outptr0 + 12, _sum3);
+            //                 outptr0 += 16;
+            // #endif // __ARM_FEATURE_DOTPROD
+            //             }
+            //             else
             {
                 vst1q_s32(outptr, _sum0);
                 vst1q_s32(outptr + 4, _sum1);
@@ -7351,7 +7351,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
         {
             const signed char* pA = pAT;
 
-#if 0//NCNN_GNU_INLINE_ASM
+#if 0 //NCNN_GNU_INLINE_ASM
             asm volatile(
                 "cmp    %w9, #0                     \n"
                 "beq    0f                          \n"
@@ -7791,7 +7791,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 "r"(out_elempack), // %11
                 "r"(out_hstep)     // %12
                 : "cc", "memory", "x4", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
-#else // NCNN_GNU_INLINE_ASM
+#else  // NCNN_GNU_INLINE_ASM
             int32x4_t _sum0;
             int32x4_t _sum1;
             int32x4_t _sum2;
@@ -8092,172 +8092,172 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 pB += 8;
             }
 
-//             if (k_end)
-//             {
-// #if __ARM_FEATURE_DOTPROD
-//                 // from
-//                 //      a0 b0 c0 d0
-//                 //      a1 b1 c1 d1
-//                 //      a2 b2 c2 d2
-//                 //      a3 b3 c3 d3
-//                 //      a4 b4 c4 d4
-//                 //      a5 b5 c5 d5
-//                 //      a6 b6 c6 d6
-//                 //      a7 b7 c7 d7
-//                 if (out_elempack == 4)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     vst1q_s32(outptr0 + 16, _sum4);
-//                     vst1q_s32(outptr0 + 20, _sum5);
-//                     vst1q_s32(outptr0 + 24, _sum6);
-//                     vst1q_s32(outptr0 + 28, _sum7);
-//                     outptr0 += 32;
-//                 }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 a2 a3
-//                 //     //      a4 a5 a6 a7
-//                 //     //      b0 b1 b2 b3
-//                 //     //      b4 b5 b6 b7
-//                 //     //      c0 c1 c2 c3
-//                 //     //      c4 c5 c6 c7
-//                 //     //      d0 d1 d2 d3
-//                 //     //      d4 d5 d6 d7
-//                 //     {
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum3);
-//                 //         int32x4x2_t _t2 = vzipq_s32(_sum4, _sum5);
-//                 //         int32x4x2_t _t3 = vzipq_s32(_sum6, _sum7);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                 //         _sum4 = vcombine_s32(vget_low_s32(_t0.val[1]), vget_low_s32(_t1.val[1]));
-//                 //         _sum5 = vcombine_s32(vget_low_s32(_t2.val[1]), vget_low_s32(_t3.val[1]));
-//                 //         _sum6 = vcombine_s32(vget_high_s32(_t0.val[1]), vget_high_s32(_t1.val[1]));
-//                 //         _sum7 = vcombine_s32(vget_high_s32(_t2.val[1]), vget_high_s32(_t3.val[1]));
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
-//                 //     outptr0 += 8;
-//                 // }
-// #else  // __ARM_FEATURE_DOTPROD
-//
-//                 // from
-//                 //      a0 b1 c2 d3
-//                 //      a4 b5 c6 d7
-//                 //      c0 d1 a2 b3
-//                 //      c4 d5 a6 b7
-//                 //      a3 b2 c1 d0
-//                 //      a7 b6 c5 d4
-//                 //      c3 d2 a1 b0
-//                 //      c7 d6 a5 b4
-//                 if (out_elempack == 4)
-//                 {
-//                     // to
-//                     //      a0 b0 c0 d0
-//                     //      a1 b1 c1 d1
-//                     //      a2 b2 c2 d2
-//                     //      a3 b3 c3 d3
-//                     //      a4 b4 c4 d4
-//                     //      a5 b5 c5 d5
-//                     //      a6 b6 c6 d6
-//                     //      a7 b7 c7 d7
-//                     {
-//                         _sum4 = vrev64q_s32(_sum4);
-//                         _sum5 = vrev64q_s32(_sum5);
-//                         _sum6 = vrev64q_s32(_sum6);
-//                         _sum7 = vrev64q_s32(_sum7);
-//                         _sum4 = vextq_s32(_sum4, _sum4, 2);
-//                         _sum5 = vextq_s32(_sum5, _sum5, 2);
-//                         _sum6 = vextq_s32(_sum6, _sum6, 2);
-//                         _sum7 = vextq_s32(_sum7, _sum7, 2);
-//                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
-//                         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
-//                         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
-//                         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
-//                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                         _sum6 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                         _sum1 = vrev64q_s32(_sum1);
-//                         _sum3 = vrev64q_s32(_sum3);
-//                         _sum5 = vrev64q_s32(_sum5);
-//                         _sum7 = vrev64q_s32(_sum7);
-//                     }
-//
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     vst1q_s32(outptr0 + 16, _sum4);
-//                     vst1q_s32(outptr0 + 20, _sum5);
-//                     vst1q_s32(outptr0 + 24, _sum6);
-//                     vst1q_s32(outptr0 + 28, _sum7);
-//                     outptr0 += 32;
-//                 }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 a2 a3
-//                 //     //      a4 a5 a6 a7
-//                 //     //      b0 b1 b2 b3
-//                 //     //      b4 b5 b6 b7
-//                 //     //      c0 c1 c2 c3
-//                 //     //      c4 c5 c6 c7
-//                 //     //      d0 d1 d2 d3
-//                 //     //      d4 d5 d6 d7
-//                 //     {
-//                 //         _sum2 = vextq_s32(_sum2, _sum2, 2);
-//                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
-//                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
-//                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
-//                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
-//                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
-//                 //         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                 //         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
-//                 //         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
-//                 //         _sum2 = vrev64q_s32(_sum2);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         _sum6 = vrev64q_s32(_sum6);
-//                 //         _sum7 = vrev64q_s32(_sum7);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
-//                 //     outptr0 += 8;
-//                 // }
-// #endif // __ARM_FEATURE_DOTPROD
-//             }
-//             else
+            //             if (k_end)
+            //             {
+            // #if __ARM_FEATURE_DOTPROD
+            //                 // from
+            //                 //      a0 b0 c0 d0
+            //                 //      a1 b1 c1 d1
+            //                 //      a2 b2 c2 d2
+            //                 //      a3 b3 c3 d3
+            //                 //      a4 b4 c4 d4
+            //                 //      a5 b5 c5 d5
+            //                 //      a6 b6 c6 d6
+            //                 //      a7 b7 c7 d7
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     vst1q_s32(outptr0 + 16, _sum4);
+            //                     vst1q_s32(outptr0 + 20, _sum5);
+            //                     vst1q_s32(outptr0 + 24, _sum6);
+            //                     vst1q_s32(outptr0 + 28, _sum7);
+            //                     outptr0 += 32;
+            //                 }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 a2 a3
+            //                 //     //      a4 a5 a6 a7
+            //                 //     //      b0 b1 b2 b3
+            //                 //     //      b4 b5 b6 b7
+            //                 //     //      c0 c1 c2 c3
+            //                 //     //      c4 c5 c6 c7
+            //                 //     //      d0 d1 d2 d3
+            //                 //     //      d4 d5 d6 d7
+            //                 //     {
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum3);
+            //                 //         int32x4x2_t _t2 = vzipq_s32(_sum4, _sum5);
+            //                 //         int32x4x2_t _t3 = vzipq_s32(_sum6, _sum7);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                 //         _sum4 = vcombine_s32(vget_low_s32(_t0.val[1]), vget_low_s32(_t1.val[1]));
+            //                 //         _sum5 = vcombine_s32(vget_low_s32(_t2.val[1]), vget_low_s32(_t3.val[1]));
+            //                 //         _sum6 = vcombine_s32(vget_high_s32(_t0.val[1]), vget_high_s32(_t1.val[1]));
+            //                 //         _sum7 = vcombine_s32(vget_high_s32(_t2.val[1]), vget_high_s32(_t3.val[1]));
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
+            //                 //     outptr0 += 8;
+            //                 // }
+            // #else  // __ARM_FEATURE_DOTPROD
+            //
+            //                 // from
+            //                 //      a0 b1 c2 d3
+            //                 //      a4 b5 c6 d7
+            //                 //      c0 d1 a2 b3
+            //                 //      c4 d5 a6 b7
+            //                 //      a3 b2 c1 d0
+            //                 //      a7 b6 c5 d4
+            //                 //      c3 d2 a1 b0
+            //                 //      c7 d6 a5 b4
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     // to
+            //                     //      a0 b0 c0 d0
+            //                     //      a1 b1 c1 d1
+            //                     //      a2 b2 c2 d2
+            //                     //      a3 b3 c3 d3
+            //                     //      a4 b4 c4 d4
+            //                     //      a5 b5 c5 d5
+            //                     //      a6 b6 c6 d6
+            //                     //      a7 b7 c7 d7
+            //                     {
+            //                         _sum4 = vrev64q_s32(_sum4);
+            //                         _sum5 = vrev64q_s32(_sum5);
+            //                         _sum6 = vrev64q_s32(_sum6);
+            //                         _sum7 = vrev64q_s32(_sum7);
+            //                         _sum4 = vextq_s32(_sum4, _sum4, 2);
+            //                         _sum5 = vextq_s32(_sum5, _sum5, 2);
+            //                         _sum6 = vextq_s32(_sum6, _sum6, 2);
+            //                         _sum7 = vextq_s32(_sum7, _sum7, 2);
+            //                         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
+            //                         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
+            //                         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
+            //                         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
+            //                         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                         _sum4 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                         _sum5 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                         _sum6 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                         _sum1 = vrev64q_s32(_sum1);
+            //                         _sum3 = vrev64q_s32(_sum3);
+            //                         _sum5 = vrev64q_s32(_sum5);
+            //                         _sum7 = vrev64q_s32(_sum7);
+            //                     }
+            //
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     vst1q_s32(outptr0 + 16, _sum4);
+            //                     vst1q_s32(outptr0 + 20, _sum5);
+            //                     vst1q_s32(outptr0 + 24, _sum6);
+            //                     vst1q_s32(outptr0 + 28, _sum7);
+            //                     outptr0 += 32;
+            //                 }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 a2 a3
+            //                 //     //      a4 a5 a6 a7
+            //                 //     //      b0 b1 b2 b3
+            //                 //     //      b4 b5 b6 b7
+            //                 //     //      c0 c1 c2 c3
+            //                 //     //      c4 c5 c6 c7
+            //                 //     //      d0 d1 d2 d3
+            //                 //     //      d4 d5 d6 d7
+            //                 //     {
+            //                 //         _sum2 = vextq_s32(_sum2, _sum2, 2);
+            //                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
+            //                 //         _sum6 = vextq_s32(_sum6, _sum6, 2);
+            //                 //         _sum7 = vextq_s32(_sum7, _sum7, 2);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum6);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum2, _sum4);
+            //                 //         int32x4x2_t _t2 = vzipq_s32(_sum1, _sum7);
+            //                 //         int32x4x2_t _t3 = vzipq_s32(_sum3, _sum5);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_low_s32(_t2.val[0]), vget_low_s32(_t3.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t2.val[0]), vget_high_s32(_t3.val[0]));
+            //                 //         _sum4 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum5 = vcombine_s32(vget_low_s32(_t3.val[1]), vget_low_s32(_t2.val[1]));
+            //                 //         _sum6 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum7 = vcombine_s32(vget_high_s32(_t3.val[1]), vget_high_s32(_t2.val[1]));
+            //                 //         _sum2 = vrev64q_s32(_sum2);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         _sum6 = vrev64q_s32(_sum6);
+            //                 //         _sum7 = vrev64q_s32(_sum7);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep + 4, _sum3);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum4);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2 + 4, _sum5);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum6);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3 + 4, _sum7);
+            //                 //     outptr0 += 8;
+            //                 // }
+            // #endif // __ARM_FEATURE_DOTPROD
+            //             }
+            //             else
             {
                 vst1q_s32(outptr, _sum0);
                 vst1q_s32(outptr + 4, _sum1);
@@ -8665,8 +8665,8 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 : "0"(outptr),
                 "1"(pA),
                 "2"(pB),
-                "r"(max_kk),       // %6
-                "r"(k)             // %7
+                "r"(max_kk), // %6
+                "r"(k)       // %7
                 : "cc", "memory", "r4", "q0", "q1", "q2", "q3", "q4", "q5", "q6", "q7", "q8", "q9", "q10", "q11", "q12", "q13", "q14", "q15");
 #endif // __aarch64__
 #else  // NCNN_GNU_INLINE_ASM
@@ -8873,113 +8873,113 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 pB += 4;
             }
 
-//             if (k_end)
-//             {
-// #if __ARM_FEATURE_DOTPROD
-//                 // from
-//                 //      a0 b0 c0 d0
-//                 //      a1 b1 c1 d1
-//                 //      a2 b2 c2 d2
-//                 //      a3 b3 c3 d3
-//                 if (out_elempack == 4)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     vst1q_s32(outptr0 + 8, _sum2);
-//                     vst1q_s32(outptr0 + 12, _sum3);
-//                     outptr0 += 16;
-//                 }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 a2 a3
-//                 //     //      b0 b1 b2 b3
-//                 //     //      c0 c1 c2 c3
-//                 //     //      d0 d1 d2 d3
-//                 //     {
-//                 //         int32x4x2_t _r01 = vzipq_s32(_sum0, _sum1);
-//                 //         int32x4x2_t _r23 = vzipq_s32(_sum2, _sum3);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_r01.val[0]), vget_low_s32(_r23.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_r01.val[0]), vget_high_s32(_r23.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_r01.val[1]), vget_low_s32(_r23.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_r01.val[1]), vget_high_s32(_r23.val[1]));
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
-//                 //     outptr0 += 4;
-//                 // }
-// #else  // __ARM_FEATURE_DOTPROD
-//
-//                 // from
-//                 //      a0 b1 c2 d3
-//                 //      c0 d1 a2 b3
-//                 //      a3 b2 c1 d0
-//                 //      c3 d2 a1 b0
-//                 // if (out_elempack == 4)
-//                 // {
-//                 //     // to
-//                 //     //      a0 b0 c0 d0
-//                 //     //      a1 b1 c1 d1
-//                 //     //      a2 b2 c2 d2
-//                 //     //      a3 b3 c3 d3
-//                 //     {
-//                 //         _sum2 = vrev64q_s32(_sum2);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //         _sum2 = vextq_s32(_sum2, _sum2, 2);
-//                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum3);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum2);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     vst1q_s32(outptr0 + 8, _sum2);
-//                 //     vst1q_s32(outptr0 + 12, _sum3);
-//                 //     outptr0 += 16;
-//                 // }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 a2 a3
-//                 //     //      b0 b1 b2 b3
-//                 //     //      c0 c1 c2 c3
-//                 //     //      d0 d1 d2 d3
-//                 //     {
-//                 //         _sum1 = vextq_s32(_sum1, _sum1, 2);
-//                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum3);
-//                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum2);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
-//                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
-//                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         _sum3 = vrev64q_s32(_sum3);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
-//                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
-//                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
-//                 //     outptr0 += 4;
-//                 // }
-//                 vst1q_s32(outptr0, _sum0);
-//                 vst1q_s32(outptr0 + 4, _sum1);
-//                 vst1q_s32(outptr0 + 8, _sum2);
-//                 vst1q_s32(outptr0 + 12, _sum3);
-//                 outptr0 += 16;
-// #endif // __ARM_FEATURE_DOTPROD
-//             }
-//             else
+            //             if (k_end)
+            //             {
+            // #if __ARM_FEATURE_DOTPROD
+            //                 // from
+            //                 //      a0 b0 c0 d0
+            //                 //      a1 b1 c1 d1
+            //                 //      a2 b2 c2 d2
+            //                 //      a3 b3 c3 d3
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     vst1q_s32(outptr0 + 8, _sum2);
+            //                     vst1q_s32(outptr0 + 12, _sum3);
+            //                     outptr0 += 16;
+            //                 }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 a2 a3
+            //                 //     //      b0 b1 b2 b3
+            //                 //     //      c0 c1 c2 c3
+            //                 //     //      d0 d1 d2 d3
+            //                 //     {
+            //                 //         int32x4x2_t _r01 = vzipq_s32(_sum0, _sum1);
+            //                 //         int32x4x2_t _r23 = vzipq_s32(_sum2, _sum3);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_r01.val[0]), vget_low_s32(_r23.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_r01.val[0]), vget_high_s32(_r23.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_r01.val[1]), vget_low_s32(_r23.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_r01.val[1]), vget_high_s32(_r23.val[1]));
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
+            //                 //     outptr0 += 4;
+            //                 // }
+            // #else  // __ARM_FEATURE_DOTPROD
+            //
+            //                 // from
+            //                 //      a0 b1 c2 d3
+            //                 //      c0 d1 a2 b3
+            //                 //      a3 b2 c1 d0
+            //                 //      c3 d2 a1 b0
+            //                 // if (out_elempack == 4)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 b0 c0 d0
+            //                 //     //      a1 b1 c1 d1
+            //                 //     //      a2 b2 c2 d2
+            //                 //     //      a3 b3 c3 d3
+            //                 //     {
+            //                 //         _sum2 = vrev64q_s32(_sum2);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //         _sum2 = vextq_s32(_sum2, _sum2, 2);
+            //                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum3);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum2);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     vst1q_s32(outptr0 + 8, _sum2);
+            //                 //     vst1q_s32(outptr0 + 12, _sum3);
+            //                 //     outptr0 += 16;
+            //                 // }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 a2 a3
+            //                 //     //      b0 b1 b2 b3
+            //                 //     //      c0 c1 c2 c3
+            //                 //     //      d0 d1 d2 d3
+            //                 //     {
+            //                 //         _sum1 = vextq_s32(_sum1, _sum1, 2);
+            //                 //         _sum3 = vextq_s32(_sum3, _sum3, 2);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum3);
+            //                 //         int32x4x2_t _t1 = vzipq_s32(_sum1, _sum2);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t1.val[0]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t1.val[0]));
+            //                 //         _sum2 = vcombine_s32(vget_low_s32(_t1.val[1]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum3 = vcombine_s32(vget_high_s32(_t1.val[1]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         _sum3 = vrev64q_s32(_sum3);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + out_hstep, _sum1);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 2, _sum2);
+            //                 //     vst1q_s32(outptr0 + out_hstep * 3, _sum3);
+            //                 //     outptr0 += 4;
+            //                 // }
+            //                 vst1q_s32(outptr0, _sum0);
+            //                 vst1q_s32(outptr0 + 4, _sum1);
+            //                 vst1q_s32(outptr0 + 8, _sum2);
+            //                 vst1q_s32(outptr0 + 12, _sum3);
+            //                 outptr0 += 16;
+            // #endif // __ARM_FEATURE_DOTPROD
+            //             }
+            //             else
             {
                 vst1q_s32(outptr, _sum0);
                 vst1q_s32(outptr + 4, _sum1);
@@ -9142,81 +9142,81 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 pB += 2;
             }
 
-//             if (k_end)
-//             {
-// #if __ARM_FEATURE_DOTPROD
-//                 // from
-//                 //      a0 b0 c0 d0
-//                 //      a1 b1 c1 d1
-//                 if (out_elempack == 4)
-//                 {
-//                     vst1q_s32(outptr0, _sum0);
-//                     vst1q_s32(outptr0 + 4, _sum1);
-//                     outptr0 += 8;
-//                 }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 b0 b1
-//                 //     //      c0 c1 d0 d1
-//                 //     {
-//                 //         int32x4x2_t _sum01 = vzipq_s32(_sum0, _sum1);
-//                 //         _sum0 = _sum01.val[0];
-//                 //         _sum1 = _sum01.val[1];
-//                 //     }
-//                 //
-//                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep, vget_high_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep * 2, vget_low_s32(_sum1));
-//                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
-//                 //     outptr0 += 2;
-//                 // }
-// #else  // __ARM_FEATURE_DOTPROD
-//
-//                 // from
-//                 //      a0 b1 c0 d1
-//                 //      a1 b0 c1 d0
-//                 // if (out_elempack == 4)
-//                 // {
-//                 //     // to
-//                 //     //      a0 b0 c0 d0
-//                 //     //      a1 b1 c1 d1
-//                 //     {
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //     }
-//                 //
-//                 //     vst1q_s32(outptr0, _sum0);
-//                 //     vst1q_s32(outptr0 + 4, _sum1);
-//                 //     outptr0 += 8;
-//                 // }
-//                 // if (out_elempack == 1)
-//                 // {
-//                 //     // to
-//                 //     //      a0 a1 c0 c1
-//                 //     //      b0 b1 d0 d1
-//                 //     {
-//                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
-//                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
-//                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
-//                 //         _sum1 = vrev64q_s32(_sum1);
-//                 //     }
-//                 //
-//                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep, vget_low_s32(_sum1));
-//                 //     vst1_s32(outptr0 + out_hstep * 2, vget_high_s32(_sum0));
-//                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
-//                 //     outptr0 += 2;
-//                 // }
-//                 vst1q_s32(outptr0, _sum0);
-//                 vst1q_s32(outptr0 + 4, _sum1);
-//                 outptr0 += 8;
-// #endif // __ARM_FEATURE_DOTPROD
-//             }
-//             else
+            //             if (k_end)
+            //             {
+            // #if __ARM_FEATURE_DOTPROD
+            //                 // from
+            //                 //      a0 b0 c0 d0
+            //                 //      a1 b1 c1 d1
+            //                 if (out_elempack == 4)
+            //                 {
+            //                     vst1q_s32(outptr0, _sum0);
+            //                     vst1q_s32(outptr0 + 4, _sum1);
+            //                     outptr0 += 8;
+            //                 }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 b0 b1
+            //                 //     //      c0 c1 d0 d1
+            //                 //     {
+            //                 //         int32x4x2_t _sum01 = vzipq_s32(_sum0, _sum1);
+            //                 //         _sum0 = _sum01.val[0];
+            //                 //         _sum1 = _sum01.val[1];
+            //                 //     }
+            //                 //
+            //                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep, vget_high_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep * 2, vget_low_s32(_sum1));
+            //                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
+            //                 //     outptr0 += 2;
+            //                 // }
+            // #else  // __ARM_FEATURE_DOTPROD
+            //
+            //                 // from
+            //                 //      a0 b1 c0 d1
+            //                 //      a1 b0 c1 d0
+            //                 // if (out_elempack == 4)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 b0 c0 d0
+            //                 //     //      a1 b1 c1 d1
+            //                 //     {
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //     }
+            //                 //
+            //                 //     vst1q_s32(outptr0, _sum0);
+            //                 //     vst1q_s32(outptr0 + 4, _sum1);
+            //                 //     outptr0 += 8;
+            //                 // }
+            //                 // if (out_elempack == 1)
+            //                 // {
+            //                 //     // to
+            //                 //     //      a0 a1 c0 c1
+            //                 //     //      b0 b1 d0 d1
+            //                 //     {
+            //                 //         int32x4x2_t _t0 = vzipq_s32(_sum0, _sum1);
+            //                 //         _sum0 = vcombine_s32(vget_low_s32(_t0.val[0]), vget_low_s32(_t0.val[1]));
+            //                 //         _sum1 = vcombine_s32(vget_high_s32(_t0.val[0]), vget_high_s32(_t0.val[1]));
+            //                 //         _sum1 = vrev64q_s32(_sum1);
+            //                 //     }
+            //                 //
+            //                 //     vst1_s32(outptr0, vget_low_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep, vget_low_s32(_sum1));
+            //                 //     vst1_s32(outptr0 + out_hstep * 2, vget_high_s32(_sum0));
+            //                 //     vst1_s32(outptr0 + out_hstep * 3, vget_high_s32(_sum1));
+            //                 //     outptr0 += 2;
+            //                 // }
+            //                 vst1q_s32(outptr0, _sum0);
+            //                 vst1q_s32(outptr0 + 4, _sum1);
+            //                 outptr0 += 8;
+            // #endif // __ARM_FEATURE_DOTPROD
+            //             }
+            //             else
             {
                 vst1q_s32(outptr, _sum0);
                 vst1q_s32(outptr + 4, _sum1);

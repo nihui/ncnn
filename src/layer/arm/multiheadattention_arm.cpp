@@ -43,13 +43,13 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 
 int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 {
-// #if NCNN_INT8
-//     if (int8_scale_term)
-//     {
-//         support_packing = false;
-//         return 0;
-//     }
-// #endif
+    // #if NCNN_INT8
+    //     if (int8_scale_term)
+    //     {
+    //         support_packing = false;
+    //         return 0;
+    //     }
+    // #endif
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
