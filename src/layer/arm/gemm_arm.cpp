@@ -5671,7 +5671,7 @@ static int gemm_BT_arm_int8(const Mat& A, const Mat& BT, float B_int8_scale, con
 
     const float output_descale = 1.f / (A_int8_scale * B_int8_scale);
 
-    // NCNN_LOGE("scale %.4f  %.4f    %.4f", A_int8_scale, B_int8_scale, output_descale);
+    // NCNN_LOGE("scale %.4f  %.4f", A_int8_scale, B_int8_scale);
 
     Mat ATX(TILE_K * TILE_M, (K + TILE_K - 1) / TILE_K, nT, 1u, opt.workspace_allocator);
     if (ATX.empty())

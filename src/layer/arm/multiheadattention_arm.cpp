@@ -43,19 +43,19 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 
 int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 {
-    // #if NCNN_INT8
-    //     if (int8_scale_term)
-    //     {
-    //         support_packing = false;
-    //         return 0;
-    //     }
-    // #endif
+// #if NCNN_INT8
+//     if (int8_scale_term)
+//     {
+//         support_packing = false;
+//         return 0;
+//     }
+// #endif
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
     opt.use_bf16_storage &= support_bf16_storage;
 
-    // opt.use_packing_layout = false;
+    opt.use_packing_layout = false;
 
     {
         qk_softmax = ncnn::create_layer_cpu(ncnn::LayerType::Softmax);
@@ -247,8 +247,14 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     }
 
     {
+        //TODO aarch64
+#if __aarch64__
+        // qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
+#else
         qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
         // qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
+#endif
         ncnn::ParamDict pd;
         pd.set(2, 1);                   // transA
         pd.set(3, 0);                   // transB
@@ -270,8 +276,14 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     }
 
     {
+        //TODO aarch64
+#if __aarch64__
         qkv_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
         // qkv_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
+#else
+        qkv_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // qkv_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
+#endif
         ncnn::ParamDict pd;
         pd.set(2, 0);   // transA
         pd.set(3, 1);   // transB
@@ -356,6 +368,7 @@ int MultiHeadAttention_arm::destroy_pipeline(const Option& _opt)
 
 static void print_mat(const ncnn::Mat& m0)
 {
+    // return;
     fprintf(stderr, "%d    %d %d %d @%d\n", m0.dims, m0.w, m0.h, m0.c, m0.elempack);
 
     ncnn::Mat m;
@@ -368,29 +381,30 @@ static void print_mat(const ncnn::Mat& m0)
         m = m0;
     }
 
-    const int T = 5;
-    for (int i = 0; i < T; i++)
+    const int TH = std::min(m.h, 5);
+    const int TW = std::min(m.w, 5);
+    for (int i = 0; i < TH; i++)
     {
-        for (int j = 0; j < T; j++)
+        for (int j = 0; j < TW; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
         fprintf(stderr, "...   ");
-        for (int j = m.w - T; j < m.w; j++)
+        for (int j = m.w - TW; j < m.w; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
         fprintf(stderr, "\n");
     }
     fprintf(stderr, "            ............\n");
-    for (int i = m.h - T; i < m.h; i++)
+    for (int i = m.h - TH; i < m.h; i++)
     {
-        for (int j = 0; j < T; j++)
+        for (int j = 0; j < TW; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
         fprintf(stderr, "...   ");
-        for (int j = m.w - T; j < m.w; j++)
+        for (int j = m.w - TW; j < m.w; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
@@ -400,14 +414,14 @@ static void print_mat(const ncnn::Mat& m0)
 
 int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& _opt) const
 {
-    // NCNN_LOGE("MultiHeadAttention_arm::forward");
+// NCNN_LOGE("MultiHeadAttention_arm::forward");
 
-    // #if NCNN_INT8
-    //     if (int8_scale_term)
-    //     {
-    //         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
-    //     }
-    // #endif
+// #if NCNN_INT8
+//     if (int8_scale_term)
+//     {
+//         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
+//     }
+// #endif
 
     int q_blob_i = 0;
     int k_blob_i = 0;
@@ -544,7 +558,7 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     opt.use_fp16_storage &= support_fp16_storage;
     opt.use_bf16_storage &= support_bf16_storage;
 
-    // opt.use_packing_layout = false;
+    opt.use_packing_layout = false;
 
     Mat attn_mask_blob_unpacked;
     if (attn_mask && attn_mask_blob.elempack != 1)
@@ -557,6 +571,8 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     {
         attn_mask_blob_unpacked = attn_mask_blob;
     }
+
+    // print_mat(attn_mask_blob_unpacked);
 
     Mat cached_xk_blob_unpacked;
     if (kv_cache && !cached_xk_blob.empty() && cached_xk_blob.elempack != 1)
@@ -603,6 +619,11 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     // print_mat(q_affine);
 
     // NCNN_LOGE("XX");
+
+    // if (!cached_xk_blob_unpacked.empty())
+    // {
+    //     print_mat(cached_xk_blob_unpacked);
+    // }
 
     Mat k_affine;
     if (kv_cache && !cached_xk_blob_unpacked.empty())
@@ -652,6 +673,8 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     // print_mat(k_affine);
 
     // NCNN_LOGE("XXX");
+
+    // NCNN_LOGE("qk_cross %d %d", dst_seqlen, src_seqlen);
 
     Mat qk_cross(dst_seqlen, src_seqlen * num_heads, elemsize, opt.blob_allocator);
     if (qk_cross.empty())

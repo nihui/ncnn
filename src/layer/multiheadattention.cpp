@@ -375,7 +375,7 @@ static void dynamic_quantize_2d(const Mat& blob, Mat& blob_int8, float& scale, c
 
 static void print_mat(const ncnn::Mat& m0)
 {
-    return;
+    // return;
     fprintf(stderr, "%d    %d %d %d @%d\n", m0.dims, m0.w, m0.h, m0.c, m0.elempack);
 
     ncnn::Mat m;
@@ -388,29 +388,30 @@ static void print_mat(const ncnn::Mat& m0)
         m = m0;
     }
 
-    const int T = 5;
-    for (int i = 0; i < T; i++)
+    const int TH = std::min(m.h, 5);
+    const int TW = std::min(m.w, 5);
+    for (int i = 0; i < TH; i++)
     {
-        for (int j = 0; j < T; j++)
+        for (int j = 0; j < TW; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
         fprintf(stderr, "...   ");
-        for (int j = m.w - T; j < m.w; j++)
+        for (int j = m.w - TW; j < m.w; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
         fprintf(stderr, "\n");
     }
     fprintf(stderr, "            ............\n");
-    for (int i = m.h - T; i < m.h; i++)
+    for (int i = m.h - TH; i < m.h; i++)
     {
-        for (int j = 0; j < T; j++)
+        for (int j = 0; j < TW; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
         fprintf(stderr, "...   ");
-        for (int j = m.w - T; j < m.w; j++)
+        for (int j = m.w - TW; j < m.w; j++)
         {
             fprintf(stderr, "%+.4f   ", m.row(i)[j]);
         }
@@ -626,6 +627,15 @@ int MultiHeadAttention::forward_int8(const std::vector<Mat>& bottom_blobs, std::
 
     // NCNN_LOGE("%.4f %.4f", q_weight_data_int8_scale, q_blob_int8_scale);
 
+    if (kv_cache && !cached_xk_blob.empty() && q_blob_i != k_blob_i)
+    {
+        xk = cached_xk_blob;
+    }
+    if (kv_cache && !cached_xv_blob.empty() && q_blob_i != v_blob_i)
+    {
+        xv = cached_xv_blob;
+    }
+
     #pragma omp parallel for num_threads(opt.num_threads)
     for (int q = 0; q < num_heads; q++)
     {
@@ -657,7 +667,7 @@ int MultiHeadAttention::forward_int8(const std::vector<Mat>& bottom_blobs, std::
         // xk = affine(k)
         if (kv_cache && !cached_xk_blob.empty() && q_blob_i != k_blob_i)
         {
-            xk = cached_xk_blob;
+            // pass
         }
         else
         {
@@ -699,7 +709,7 @@ int MultiHeadAttention::forward_int8(const std::vector<Mat>& bottom_blobs, std::
         // xv = affine(v)
         if (kv_cache && !cached_xk_blob.empty() && q_blob_i != v_blob_i)
         {
-            xv = cached_xv_blob;
+            // pass
         }
         else
         {
@@ -933,21 +943,77 @@ int MultiHeadAttention::forward_int8(const std::vector<Mat>& bottom_blobs, std::
 
     // Mat xq(embed_dim_per_head, src_seqlen, num_heads)
     // qaffine(src_seqlen, embed_dim_per_head * num_heads)
-    {
-        // FIXME debug
-        Mat qaffine(src_seqlen, embed_dim_per_head * num_heads);
-        for (int i = 0; i < num_heads; i++)
-        {
-            for (int j = 0; j < embed_dim_per_head; j++)
-            {
-                for (int k = 0; k < src_seqlen; k++)
-                {
-                    qaffine.row(i * embed_dim_per_head + j)[k] = xq.channel(i).row(k)[j];
-                }
-            }
-        }
-        print_mat(qaffine);
-    }
+    // {
+    //     // FIXME debug
+    //     Mat qaffine(src_seqlen, embed_dim_per_head * num_heads);
+    //     for (int i = 0; i < num_heads; i++)
+    //     {
+    //         for (int j = 0; j < embed_dim_per_head; j++)
+    //         {
+    //             for (int k = 0; k < src_seqlen; k++)
+    //             {
+    //                 qaffine.row(i * embed_dim_per_head + j)[k] = xq.channel(i).row(k)[j];
+    //             }
+    //         }
+    //     }
+    //     print_mat(qaffine);
+    // }
+
+    // print_mat(attn_mask_blob);
+
+    // if (!cached_xk_blob.empty())
+    // {
+    //     // FIXME debug cached_xk_blob
+    //     // Mat xk(embed_dim_per_head, dst_seqlen, num_heads)
+    //     Mat tmp(cached_xk_blob.h, embed_dim_per_head * num_heads);
+    //     for (int i = 0; i < num_heads; i++)
+    //     {
+    //         for (int j = 0; j < embed_dim_per_head; j++)
+    //         {
+    //             for (int k = 0; k < cached_xk_blob.h; k++)
+    //             {
+    //                 tmp.row(i * embed_dim_per_head + j)[k] = cached_xk_blob.channel(i).row(k)[j];
+    //             }
+    //         }
+    //     }
+    //     print_mat(tmp);
+    // }
+
+    // Mat xk(embed_dim_per_head, dst_seqlen, num_heads)
+    // kaffine(dst_seqlen, embed_dim_per_head * num_heads)
+    // {
+    //     // FIXME debug
+    //     Mat kaffine(dst_seqlen, embed_dim_per_head * num_heads);
+    //     for (int i = 0; i < num_heads; i++)
+    //     {
+    //         for (int j = 0; j < embed_dim_per_head; j++)
+    //         {
+    //             for (int k = 0; k < dst_seqlen; k++)
+    //             {
+    //                 kaffine.row(i * embed_dim_per_head + j)[k] = xk.channel(i).row(k)[j];
+    //             }
+    //         }
+    //     }
+    //     print_mat(kaffine);
+    // }
+
+    // Mat xqk(dst_seqlen, src_seqlen, num_heads)
+    // qk_cross(dst_seqlen, src_seqlen * num_heads)
+    // {
+    //     // FIXME debug
+    //     Mat qk_cross(dst_seqlen, src_seqlen * num_heads);
+    //     for (int i = 0; i < num_heads; i++)
+    //     {
+    //         for (int j = 0; j < src_seqlen; j++)
+    //         {
+    //             for (int k = 0; k < dst_seqlen; k++)
+    //             {
+    //                 qk_cross.row(i * src_seqlen + j)[k] = xqk.channel(i).row(j)[k];
+    //             }
+    //         }
+    //     }
+    //     print_mat(qk_cross);
+    // }
 
     return 0;
 }
