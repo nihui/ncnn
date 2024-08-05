@@ -55,7 +55,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     opt.use_fp16_storage &= support_fp16_storage;
     opt.use_bf16_storage &= support_bf16_storage;
 
-    opt.use_packing_layout = false;
+    // opt.use_packing_layout = false;
 
     {
         qk_softmax = ncnn::create_layer_cpu(ncnn::LayerType::Softmax);
@@ -247,14 +247,8 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     }
 
     {
-        //TODO aarch64
-#if __aarch64__
-        // qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
-        qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
-#else
         qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
         // qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
-#endif
         ncnn::ParamDict pd;
         pd.set(2, 1);                   // transA
         pd.set(3, 0);                   // transB
@@ -276,14 +270,8 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     }
 
     {
-        //TODO aarch64
-#if __aarch64__
         qkv_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
         // qkv_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
-#else
-        qkv_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
-        // qkv_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
-#endif
         ncnn::ParamDict pd;
         pd.set(2, 0);   // transA
         pd.set(3, 1);   // transB
@@ -558,7 +546,7 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     opt.use_fp16_storage &= support_fp16_storage;
     opt.use_bf16_storage &= support_bf16_storage;
 
-    opt.use_packing_layout = false;
+    // opt.use_packing_layout = false;
 
     Mat attn_mask_blob_unpacked;
     if (attn_mask && attn_mask_blob.elempack != 1)
