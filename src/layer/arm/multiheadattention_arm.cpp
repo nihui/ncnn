@@ -28,7 +28,8 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 #endif
 #endif // __ARM_NEON
 
-    support_bf16_storage = false;
+    // support_bf16_storage = false;
+    support_bf16_storage = true;
 
     q_gemm = 0;
     k_gemm = 0;
@@ -46,14 +47,14 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     // #if NCNN_INT8
     //     if (int8_scale_term)
     //     {
-    //         support_packing = false;
+            // support_packing = false;
     //         return 0;
     //     }
     // #endif
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
-    opt.use_bf16_storage &= support_bf16_storage;
+    // opt.use_bf16_storage &= support_bf16_storage;
 
     // opt.use_packing_layout = false;
 
@@ -300,7 +301,7 @@ int MultiHeadAttention_arm::destroy_pipeline(const Option& _opt)
 {
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
-    opt.use_bf16_storage &= support_bf16_storage;
+    // opt.use_bf16_storage &= support_bf16_storage;
 
     if (qk_softmax)
     {
@@ -544,7 +545,7 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
-    opt.use_bf16_storage &= support_bf16_storage;
+    // opt.use_bf16_storage &= support_bf16_storage;
 
     // opt.use_packing_layout = false;
 
@@ -626,24 +627,31 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
             // assert dst_seqlen == cached_xk_blob_unpacked.w + k_affine_q.w
 
             // merge cached_xk_blob_unpacked and k_affine_q
-            k_affine.create(dst_seqlen, embed_dim);
+            k_affine.create(dst_seqlen, embed_dim, k_affine_q.elemsize);
             if (k_affine.empty())
                 return -100;
 
             for (int i = 0; i < embed_dim; i++)
             {
-                const float* ptr = cached_xk_blob_unpacked.row(i);
-                const float* ptrq = k_affine_q.row(i);
-                float* outptr = k_affine.row(i);
+                // const float* ptr = cached_xk_blob_unpacked.row(i);
+                // const float* ptrq = k_affine_q.row(i);
+                // float* outptr = k_affine.row(i);
+                //
+                // for (int j = 0; j < cached_xk_blob_unpacked.w; j++)
+                // {
+                //     *outptr++ = *ptr++;
+                // }
+                // for (int j = 0; j < k_affine_q.w; j++)
+                // {
+                //     *outptr++ = *ptrq++;
+                // }
 
-                for (int j = 0; j < cached_xk_blob_unpacked.w; j++)
-                {
-                    *outptr++ = *ptr++;
-                }
-                for (int j = 0; j < k_affine_q.w; j++)
-                {
-                    *outptr++ = *ptrq++;
-                }
+                const unsigned char* ptr = cached_xk_blob_unpacked.row<const unsigned char>(i);
+                const unsigned char* ptrq = k_affine_q.row<const unsigned char>(i);
+                unsigned char* outptr = k_affine.row<unsigned char>(i);
+
+                memcpy(outptr, ptr, cached_xk_blob_unpacked.w * k_affine.elemsize);
+                memcpy(outptr + cached_xk_blob_unpacked.w * k_affine.elemsize, ptrq, k_affine_q.w * k_affine.elemsize);
             }
         }
         else
@@ -719,24 +727,31 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
             // assert dst_seqlen == cached_xv_blob_unpacked.w + v_affine_q.w
 
             // merge cached_xv_blob_unpacked and v_affine_q
-            v_affine.create(dst_seqlen, embed_dim);
+            v_affine.create(dst_seqlen, embed_dim, v_affine_q.elemsize);
             if (v_affine.empty())
                 return -100;
 
             for (int i = 0; i < embed_dim; i++)
             {
-                const float* ptr = cached_xv_blob_unpacked.row(i);
-                const float* ptrq = v_affine_q.row(i);
-                float* outptr = v_affine.row(i);
+                // const float* ptr = cached_xv_blob_unpacked.row(i);
+                // const float* ptrq = v_affine_q.row(i);
+                // float* outptr = v_affine.row(i);
+                //
+                // for (int j = 0; j < cached_xv_blob_unpacked.w; j++)
+                // {
+                //     *outptr++ = *ptr++;
+                // }
+                // for (int j = 0; j < v_affine_q.w; j++)
+                // {
+                //     *outptr++ = *ptrq++;
+                // }
 
-                for (int j = 0; j < cached_xv_blob_unpacked.w; j++)
-                {
-                    *outptr++ = *ptr++;
-                }
-                for (int j = 0; j < v_affine_q.w; j++)
-                {
-                    *outptr++ = *ptrq++;
-                }
+                const unsigned char* ptr = cached_xv_blob_unpacked.row<const unsigned char>(i);
+                const unsigned char* ptrq = v_affine_q.row<const unsigned char>(i);
+                unsigned char* outptr = v_affine.row<unsigned char>(i);
+
+                memcpy(outptr, ptr, cached_xv_blob_unpacked.w * v_affine.elemsize);
+                memcpy(outptr + cached_xv_blob_unpacked.w * v_affine.elemsize, ptrq, v_affine_q.w * v_affine.elemsize);
             }
         }
         else
