@@ -47,7 +47,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     // #if NCNN_INT8
     //     if (int8_scale_term)
     //     {
-            // support_packing = false;
+    // support_packing = false;
     //         return 0;
     //     }
     // #endif

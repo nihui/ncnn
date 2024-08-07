@@ -7668,10 +7668,10 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     if (broadcast_type_C == 1 || broadcast_type_C == 2)
                     {
                         // TODO
-                    //     float32x4_t _c0 = vld1q_f32(pC);
-                    //     float32x4_t _c1 = vld1q_f32(pC + 4);
-                    //     _f0 = vaddq_f32(_f0, _c0);
-                    //     _f1 = vaddq_f32(_f1, _c1);
+                        //     float32x4_t _c0 = vld1q_f32(pC);
+                        //     float32x4_t _c1 = vld1q_f32(pC + 4);
+                        //     _f0 = vaddq_f32(_f0, _c0);
+                        //     _f1 = vaddq_f32(_f1, _c1);
                     }
                     if (broadcast_type_C == 3)
                     {
@@ -15505,7 +15505,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 _sum1 = vaddq_s32(_sum1, vpaddq_s32(_sum10, _sum11));
 #endif // __ARM_FEATURE_MATMUL_INT8
             }
-#else // __ARM_FEATURE_DOTPROD
+#else  // __ARM_FEATURE_DOTPROD
             {
                 int32x4_t _sum2 = vdupq_n_s32(0);
                 int32x4_t _sum3 = vdupq_n_s32(0);
@@ -15710,7 +15710,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
                 _sum0 = vaddq_s32(_sum0, vpaddq_s32(_sum00, _sum01));
 #endif // __ARM_FEATURE_MATMUL_INT8
             }
-#else // __ARM_FEATURE_DOTPROD
+#else  // __ARM_FEATURE_DOTPROD
             {
                 int32x4_t _sum1 = vdupq_n_s32(0);
                 int32x4_t _sum2 = vdupq_n_s32(0);
