@@ -12,46 +12,40 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-#include "pass_onnx.h"
-#include "ir.h"
+#include "pass_level1.h"
 
-#include "onnx-ml.pb.h"
+#include "../utils.h"
 
 namespace pnnx {
 
-namespace onnx2pnnx {
-
-class Linear : public FuseFunctionPass
+class RMSNorm : public FuseModulePass
 {
 public:
     const char* match_type_str() const
     {
-        return "nn.Linear";
+        return "__torch__.torch.nn.modules.normalization.RMSNorm";
     }
 
     const char* type_str() const
     {
-        return "nn.Linear";
+        return "nn.RMSNorm";
     }
 
-    void write(Operator* op, const OnnxFunctionProxy& function) const
+    void write(Operator* op, const std::shared_ptr<torch::jit::Graph>& graph, const torch::jit::Module& mod) const
     {
-        const onnx::TensorProto& weight = function.initializer("weight");
+        const torch::jit::Node* rmsn = find_node_by_kind(graph, "aten::rms_norm");
 
-        op->params["in_features"] = weight.dims(1);
-        op->params["out_features"] = weight.dims(0);
-        op->params["bias"] = function.has_initializer("bias");
+        op->params["normalized_shape"] = rmsn->namedInput("normalized_shape");
+        op->params["eps"] = rmsn->namedInput("eps");
+        op->params["elementwise_affine"] = mod.hasattr("weight") && mod.hasattr("bias");
 
-        op->attrs["weight"] = weight;
-        if (function.has_initializer("bias"))
+        if (mod.hasattr("weight"))
         {
-            op->attrs["bias"] = function.initializer("bias");
+            op->attrs["weight"] = mod.attr("weight").toTensor();
         }
     }
 };
 
-REGISTER_GLOBAL_PNNX_FUSE_FUNCTION_PASS(Linear)
-
-} // namespace onnx2pnnx
+REGISTER_GLOBAL_PNNX_FUSE_MODULE_PASS(RMSNorm)
 
 } // namespace pnnx

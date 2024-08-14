@@ -12,46 +12,32 @@
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
 
-#include "pass_onnx.h"
-#include "ir.h"
-
-#include "onnx-ml.pb.h"
+#include "pass_level2.h"
 
 namespace pnnx {
 
-namespace onnx2pnnx {
-
-class Linear : public FuseFunctionPass
+class F_rms_norm : public GraphRewriterPass
 {
 public:
-    const char* match_type_str() const
+    const char* match_pattern_graph() const
     {
-        return "nn.Linear";
+        return R"PNNXIR(7767517
+6 5
+pnnx.Input              input_0     0 1 input
+pnnx.Input              input_1     0 1 weight
+pnnx.Input              input_2     0 1 normalized_shape
+prim::Constant          op_0        0 1 eps value=%eps
+aten::rms_norm          op_1        4 1 input normalized_shape weight eps out
+pnnx.Output             output      1 0 out
+)PNNXIR";
     }
 
     const char* type_str() const
     {
-        return "nn.Linear";
-    }
-
-    void write(Operator* op, const OnnxFunctionProxy& function) const
-    {
-        const onnx::TensorProto& weight = function.initializer("weight");
-
-        op->params["in_features"] = weight.dims(1);
-        op->params["out_features"] = weight.dims(0);
-        op->params["bias"] = function.has_initializer("bias");
-
-        op->attrs["weight"] = weight;
-        if (function.has_initializer("bias"))
-        {
-            op->attrs["bias"] = function.initializer("bias");
-        }
+        return "F.rms_norm";
     }
 };
 
-REGISTER_GLOBAL_PNNX_FUSE_FUNCTION_PASS(Linear)
-
-} // namespace onnx2pnnx
+REGISTER_GLOBAL_PNNX_GRAPH_REWRITER_PASS(F_rms_norm, 10)
 
 } // namespace pnnx
