@@ -5043,37 +5043,24 @@ static void transpose_unpack_output_tile_int32_to_fp32(const Mat& topT, Mat& top
             {
                 // a0 a1 a2 a3
                 // b0 b1 b2 b3
-
-                // int32x4_t _sum0 = vld1q_s32(pp);
-                // int32x4_t _sum1 = vld1q_s32(pp + 4);
-                // int32x4_t _sum2 = vld1q_s32(pp + 8);
-                // int32x4_t _sum3 = vld1q_s32(pp + 12);
-                //
-                // int32x4x2_t _sum01 = vzipq_s32(_sum0, _sum1);
-                //
-                // float32x4_t _f0 = vmulq_f32(vcvtq_f32_s32(_sum01.val[0]), _descale);
-                // float32x4_t _f1 = vmulq_f32(vcvtq_f32_s32(_sum01.val[1]), _descale);
-                //
-                // vst1_f32(p0, vget_low_f32(_f0));
-                // vst1_f32(p0 + out_hstep, vget_high_f32(_f0));
-                // vst1_f32(p0 + out_hstep * 2, vget_low_f32(_f1));
-                // vst1_f32(p0 + out_hstep * 3, vget_high_f32(_f1));
+                // a4 a5 a6 a7
+                // b4 b5 b6 b7
 
                 p0[0] = pp[0] * descale;
-                p0[1] = pp[8] * descale;
+                p0[1] = pp[4] * descale;
                 p0[out_hstep] = pp[1] * descale;
-                p0[out_hstep + 1] = pp[9] * descale;
+                p0[out_hstep + 1] = pp[5] * descale;
                 p0[out_hstep * 2] = pp[2] * descale;
-                p0[out_hstep * 2 + 1] = pp[10] * descale;
+                p0[out_hstep * 2 + 1] = pp[6] * descale;
                 p0[out_hstep * 3] = pp[3] * descale;
-                p0[out_hstep * 3 + 1] = pp[11] * descale;
-                p0[out_hstep * 4] = pp[4] * descale;
+                p0[out_hstep * 3 + 1] = pp[7] * descale;
+                p0[out_hstep * 4] = pp[8] * descale;
                 p0[out_hstep * 4 + 1] = pp[12] * descale;
-                p0[out_hstep * 5] = pp[5] * descale;
+                p0[out_hstep * 5] = pp[9] * descale;
                 p0[out_hstep * 5 + 1] = pp[13] * descale;
-                p0[out_hstep * 6] = pp[6] * descale;
+                p0[out_hstep * 6] = pp[10] * descale;
                 p0[out_hstep * 6 + 1] = pp[14] * descale;
-                p0[out_hstep * 7] = pp[7] * descale;
+                p0[out_hstep * 7] = pp[11] * descale;
                 p0[out_hstep * 7 + 1] = pp[15] * descale;
                 pp += 16;
                 p0 += out_hstep * 8;
@@ -9823,37 +9810,24 @@ static void transpose_unpack_output_tile_int32_to_bf16(const Mat& topT, Mat& top
             {
                 // a0 a1 a2 a3
                 // b0 b1 b2 b3
-
-                // int32x4_t _sum0 = vld1q_s32(pp);
-                // int32x4_t _sum1 = vld1q_s32(pp + 4);
-                // int32x4_t _sum2 = vld1q_s32(pp + 8);
-                // int32x4_t _sum3 = vld1q_s32(pp + 12);
-                //
-                // int32x4x2_t _sum01 = vzipq_s32(_sum0, _sum1);
-                //
-                // float32x4_t _f0 = vmulq_f32(vcvtq_f32_s32(_sum01.val[0]), _descale);
-                // float32x4_t _f1 = vmulq_f32(vcvtq_f32_s32(_sum01.val[1]), _descale);
-                //
-                // vst1_f32(p0, vget_low_f32(_f0));
-                // vst1_f32(p0 + out_hstep, vget_high_f32(_f0));
-                // vst1_f32(p0 + out_hstep * 2, vget_low_f32(_f1));
-                // vst1_f32(p0 + out_hstep * 3, vget_high_f32(_f1));
+                // a4 a5 a6 a7
+                // b4 b5 b6 b7
 
                 p0[0] = float32_to_bfloat16(pp[0] * descale);
-                p0[1] = float32_to_bfloat16(pp[8] * descale);
+                p0[1] = float32_to_bfloat16(pp[4] * descale);
                 p0[out_hstep] = float32_to_bfloat16(pp[1] * descale);
-                p0[out_hstep + 1] = float32_to_bfloat16(pp[9] * descale);
+                p0[out_hstep + 1] = float32_to_bfloat16(pp[5] * descale);
                 p0[out_hstep * 2] = float32_to_bfloat16(pp[2] * descale);
-                p0[out_hstep * 2 + 1] = float32_to_bfloat16(pp[10] * descale);
+                p0[out_hstep * 2 + 1] = float32_to_bfloat16(pp[6] * descale);
                 p0[out_hstep * 3] = float32_to_bfloat16(pp[3] * descale);
-                p0[out_hstep * 3 + 1] = float32_to_bfloat16(pp[11] * descale);
-                p0[out_hstep * 4] = float32_to_bfloat16(pp[4] * descale);
+                p0[out_hstep * 3 + 1] = float32_to_bfloat16(pp[7] * descale);
+                p0[out_hstep * 4] = float32_to_bfloat16(pp[8] * descale);
                 p0[out_hstep * 4 + 1] = float32_to_bfloat16(pp[12] * descale);
-                p0[out_hstep * 5] = float32_to_bfloat16(pp[5] * descale);
+                p0[out_hstep * 5] = float32_to_bfloat16(pp[9] * descale);
                 p0[out_hstep * 5 + 1] = float32_to_bfloat16(pp[13] * descale);
-                p0[out_hstep * 6] = float32_to_bfloat16(pp[6] * descale);
+                p0[out_hstep * 6] = float32_to_bfloat16(pp[10] * descale);
                 p0[out_hstep * 6 + 1] = float32_to_bfloat16(pp[14] * descale);
-                p0[out_hstep * 7] = float32_to_bfloat16(pp[7] * descale);
+                p0[out_hstep * 7] = float32_to_bfloat16(pp[11] * descale);
                 p0[out_hstep * 7 + 1] = float32_to_bfloat16(pp[15] * descale);
                 pp += 16;
                 p0 += out_hstep * 8;
