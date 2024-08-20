@@ -16069,7 +16069,7 @@ static void gemm_transB_packed_tile_int8(const Mat& AT_tile, const Mat& BT_tile,
 #if __ARM_NEON
             int32x4_t _sum = vdupq_n_s32(0);
             int32x4_t _sum1 = vdupq_n_s32(0);
-            for (; kk + 15 < max_kk; kk += 16)
+            for (; kk + 31 < max_kk; kk += 32)
             {
                 int8x16_t _pA0 = vld1q_s8(pA);
                 int8x16_t _pA1 = vld1q_s8(pA + 16);
