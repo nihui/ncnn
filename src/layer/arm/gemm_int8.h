@@ -3104,7 +3104,7 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                         _c1 = vsetq_lane_f32(pC[c_hstep * 7], _c1, 3);
                         _f0 = vaddq_f32(_f0, _c0);
                         _f1 = vaddq_f32(_f1, _c1);
-                        pC += 4;
+                        pC += 1;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -7598,15 +7598,36 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = bfloat2float(vld1_u16(pC));
-                        float32x4_t _c1 = bfloat2float(vld1_u16(pC + c_hstep));
-                        float32x4_t _c2 = bfloat2float(vld1_u16(pC + c_hstep * 2));
-                        float32x4_t _c3 = bfloat2float(vld1_u16(pC + c_hstep * 3));
-                        _f0 = vaddq_f32(_f0, _c0);
-                        _f1 = vaddq_f32(_f1, _c1);
-                        _f2 = vaddq_f32(_f2, _c2);
-                        _f3 = vaddq_f32(_f3, _c3);
-                        pC += 4;
+                        uint16x4_t _c02;
+                        uint16x4_t _c13;
+                        uint16x4_t _c46;
+                        uint16x4_t _c57;
+
+                        _c02 = vset_lane_u16(pC[0], _c02, 0);
+                        _c02 = vset_lane_u16(pC[1], _c02, 1);
+                        _c02 = vset_lane_u16(pC[c_hstep * 2], _c02, 2);
+                        _c02 = vset_lane_u16(pC[c_hstep * 2 + 1], _c02, 3);
+
+                        _c13 = vset_lane_u16(pC[c_hstep * 1], _c13, 0);
+                        _c13 = vset_lane_u16(pC[c_hstep * 1 + 1], _c13, 1);
+                        _c13 = vset_lane_u16(pC[c_hstep * 3], _c13, 2);
+                        _c13 = vset_lane_u16(pC[c_hstep * 3 + 1], _c13, 3);
+
+                        _c46 = vset_lane_u16(pC[c_hstep * 4], _c46, 0);
+                        _c46 = vset_lane_u16(pC[c_hstep * 4 + 1], _c46, 1);
+                        _c46 = vset_lane_u16(pC[c_hstep * 6], _c46, 2);
+                        _c46 = vset_lane_u16(pC[c_hstep * 6 + 1], _c46, 3);
+
+                        _c57 = vset_lane_u16(pC[c_hstep * 5], _c57, 0);
+                        _c57 = vset_lane_u16(pC[c_hstep * 5 + 1], _c57, 1);
+                        _c57 = vset_lane_u16(pC[c_hstep * 7], _c57, 2);
+                        _c57 = vset_lane_u16(pC[c_hstep * 7 + 1], _c57, 3);
+
+                        _f0 = vaddq_f32(_f0, bfloat2float(_c02));
+                        _f1 = vaddq_f32(_f1, bfloat2float(_c13));
+                        _f2 = vaddq_f32(_f2, bfloat2float(_c46));
+                        _f3 = vaddq_f32(_f3, bfloat2float(_c57));
+                        pC += 2;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -7688,11 +7709,20 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = bfloat2float(vld1_u16(pC));
-                        float32x4_t _c1 = bfloat2float(vld1_u16(pC + c_hstep));
-                        _f0 = vaddq_f32(_f0, _c0);
-                        _f1 = vaddq_f32(_f1, _c1);
-                        pC += 4;
+                        uint16x4_t _c0;
+                        uint16x4_t _c1;
+                        _c0 = vset_lane_u16(pC[0], _c0, 0);
+                        _c0 = vset_lane_u16(pC[c_hstep], _c0, 1);
+                        _c0 = vset_lane_u16(pC[c_hstep * 2], _c0, 2);
+                        _c0 = vset_lane_u16(pC[c_hstep * 3], _c0, 3);
+                        _c1 = vset_lane_u16(pC[c_hstep * 4], _c1, 0);
+                        _c1 = vset_lane_u16(pC[c_hstep * 5], _c1, 1);
+                        _c1 = vset_lane_u16(pC[c_hstep * 6], _c1, 2);
+                        _c1 = vset_lane_u16(pC[c_hstep * 7], _c1, 3);
+
+                        _f0 = vaddq_f32(_f0, bfloat2float(_c0));
+                        _f1 = vaddq_f32(_f1, bfloat2float(_c1));
+                        pC += 1;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -8386,11 +8416,22 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = bfloat2float(vld1_u16(pC));
-                        float32x4_t _c1 = bfloat2float(vld1_u16(pC + c_hstep));
-                        _f0 = vaddq_f32(_f0, _c0);
-                        _f1 = vaddq_f32(_f1, _c1);
-                        pC += 4;
+                        uint16x4_t _c02;
+                        uint16x4_t _c13;
+
+                        _c02 = vset_lane_u16(pC[0], _c02, 0);
+                        _c02 = vset_lane_u16(pC[1], _c02, 1);
+                        _c02 = vset_lane_u16(pC[c_hstep * 2], _c02, 2);
+                        _c02 = vset_lane_u16(pC[c_hstep * 2 + 1], _c02, 3);
+
+                        _c13 = vset_lane_u16(pC[c_hstep * 1], _c13, 0);
+                        _c13 = vset_lane_u16(pC[c_hstep * 1 + 1], _c13, 1);
+                        _c13 = vset_lane_u16(pC[c_hstep * 3], _c13, 2);
+                        _c13 = vset_lane_u16(pC[c_hstep * 3 + 1], _c13, 3);
+
+                        _f0 = vaddq_f32(_f0, bfloat2float(_c02));
+                        _f1 = vaddq_f32(_f1, bfloat2float(_c13));
+                        pC += 2;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -8452,9 +8493,14 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = bfloat2float(vld1_u16(pC));
-                        _f0 = vaddq_f32(_f0, _c0);
-                        pC += 4;
+                        uint16x4_t _c0;
+                        _c0 = vset_lane_u16(pC[0], _c0, 0);
+                        _c0 = vset_lane_u16(pC[c_hstep], _c0, 1);
+                        _c0 = vset_lane_u16(pC[c_hstep * 2], _c0, 2);
+                        _c0 = vset_lane_u16(pC[c_hstep * 3], _c0, 3);
+
+                        _f0 = vaddq_f32(_f0, bfloat2float(_c0));
+                        pC += 1;
                     }
                     if (broadcast_type_C == 4)
                     {
