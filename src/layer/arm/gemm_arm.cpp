@@ -6319,7 +6319,7 @@ int Gemm_arm::forward_int8(const std::vector<Mat>& bottom_blobs, std::vector<Mat
         return -100;
 
     // HACK
-    if (broadcast_type_C == 3)
+    if (opt.use_packing_layout && broadcast_type_C == 3)
     {
         Mat C2;
         convert_packing(C, C2, out_elempack);

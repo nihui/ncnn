@@ -3014,15 +3014,19 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = vld1q_f32(pC);
-                        float32x4_t _c1 = vld1q_f32(pC + c_hstep);
-                        float32x4_t _c2 = vld1q_f32(pC + c_hstep * 1);
-                        float32x4_t _c3 = vld1q_f32(pC + c_hstep * 2);
-                        _f0 = vaddq_f32(_f0, _c0);
-                        _f1 = vaddq_f32(_f1, _c1);
-                        _f2 = vaddq_f32(_f2, _c2);
-                        _f3 = vaddq_f32(_f3, _c3);
-                        pC += 4;
+                        float32x2_t _c0 = vld1_f32(pC);
+                        float32x2_t _c1 = vld1_f32(pC + c_hstep * 1);
+                        float32x2_t _c2 = vld1_f32(pC + c_hstep * 2);
+                        float32x2_t _c3 = vld1_f32(pC + c_hstep * 3);
+                        float32x2_t _c4 = vld1_f32(pC + c_hstep * 4);
+                        float32x2_t _c5 = vld1_f32(pC + c_hstep * 5);
+                        float32x2_t _c6 = vld1_f32(pC + c_hstep * 6);
+                        float32x2_t _c7 = vld1_f32(pC + c_hstep * 7);
+                        _f0 = vaddq_f32(_f0, vcombine_f32(_c0, _c2));
+                        _f1 = vaddq_f32(_f1, vcombine_f32(_c1, _c3));
+                        _f2 = vaddq_f32(_f2, vcombine_f32(_c4, _c6));
+                        _f3 = vaddq_f32(_f3, vcombine_f32(_c5, _c7));
+                        pC += 2;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -3088,8 +3092,16 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = vld1q_f32(pC);
-                        float32x4_t _c1 = vld1q_f32(pC + c_hstep);
+                        float32x4_t _c0;
+                        float32x4_t _c1;
+                        _c0 = vsetq_lane_f32(pC[0], _c0, 0);
+                        _c0 = vsetq_lane_f32(pC[c_hstep], _c0, 1);
+                        _c0 = vsetq_lane_f32(pC[c_hstep * 2], _c0, 2);
+                        _c0 = vsetq_lane_f32(pC[c_hstep * 3], _c0, 3);
+                        _c1 = vsetq_lane_f32(pC[c_hstep * 4], _c1, 0);
+                        _c1 = vsetq_lane_f32(pC[c_hstep * 5], _c1, 1);
+                        _c1 = vsetq_lane_f32(pC[c_hstep * 6], _c1, 2);
+                        _c1 = vsetq_lane_f32(pC[c_hstep * 7], _c1, 3);
                         _f0 = vaddq_f32(_f0, _c0);
                         _f1 = vaddq_f32(_f1, _c1);
                         pC += 4;
@@ -3799,11 +3811,13 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = vld1q_f32(pC);
-                        float32x4_t _c1 = vld1q_f32(pC + c_hstep);
-                        _f0 = vaddq_f32(_f0, _c0);
-                        _f1 = vaddq_f32(_f1, _c1);
-                        pC += 4;
+                        float32x2_t _c0 = vld1_f32(pC);
+                        float32x2_t _c1 = vld1_f32(pC + c_hstep);
+                        float32x2_t _c2 = vld1_f32(pC + c_hstep * 2);
+                        float32x2_t _c3 = vld1_f32(pC + c_hstep * 3);
+                        _f0 = vaddq_f32(_f0, vcombine_f32(_c0, _c1));
+                        _f1 = vaddq_f32(_f1, vcombine_f32(_c2, _c3));
+                        pC += 2;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -3852,9 +3866,13 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     }
                     if (broadcast_type_C == 3)
                     {
-                        float32x4_t _c0 = vld1q_f32(pC);
+                        float32x4_t _c0;
+                        _c0 = vsetq_lane_f32(pC[0], _c0, 0);
+                        _c0 = vsetq_lane_f32(pC[c_hstep], _c0, 1);
+                        _c0 = vsetq_lane_f32(pC[c_hstep * 2], _c0, 2);
+                        _c0 = vsetq_lane_f32(pC[c_hstep * 3], _c0, 3);
                         _f0 = vaddq_f32(_f0, _c0);
-                        pC += 4;
+                        pC += 1;
                     }
                     if (broadcast_type_C == 4)
                     {
@@ -3999,7 +4017,7 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     if (broadcast_type_C == 3)
                     {
                         float32x4_t _c0 = vld1q_f32(pC);
-                        float32x4_t _c1 = vld1q_f32(pC + c_hstep * 1);
+                        float32x4_t _c1 = vld1q_f32(pC + c_hstep);
                         _f0 = vaddq_f32(_f0, _c0);
                         _f1 = vaddq_f32(_f1, _c1);
                         pC += 4;
@@ -4052,8 +4070,8 @@ static void unpack_output_tile_int32_to_fp32(const Mat& topT, const Mat& C, Mat&
                     if (broadcast_type_C == 3)
                     {
                         p0[0] += pC[0];
-                        p0[1] += pC[c_hstep];
-                        p1[0] += pC[1];
+                        p0[1] += pC[1];
+                        p1[0] += pC[c_hstep];
                         p1[1] += pC[c_hstep + 1];
                         pC += 2;
                     }
@@ -7582,8 +7600,8 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     {
                         float32x4_t _c0 = bfloat2float(vld1_u16(pC));
                         float32x4_t _c1 = bfloat2float(vld1_u16(pC + c_hstep));
-                        float32x4_t _c2 = bfloat2float(vld1_u16(pC + c_hstep * 1));
-                        float32x4_t _c3 = bfloat2float(vld1_u16(pC + c_hstep * 2));
+                        float32x4_t _c2 = bfloat2float(vld1_u16(pC + c_hstep * 2));
+                        float32x4_t _c3 = bfloat2float(vld1_u16(pC + c_hstep * 3));
                         _f0 = vaddq_f32(_f0, _c0);
                         _f1 = vaddq_f32(_f1, _c1);
                         _f2 = vaddq_f32(_f2, _c2);
@@ -8627,8 +8645,8 @@ static void unpack_output_tile_int32_to_bf16(const Mat& topT, const Mat& C, Mat&
                     if (broadcast_type_C == 3)
                     {
                         p00 += bfloat16_to_float32(pC[0]);
-                        p01 += bfloat16_to_float32(pC[c_hstep]);
-                        p10 += bfloat16_to_float32(pC[1]);
+                        p01 += bfloat16_to_float32(pC[1]);
+                        p10 += bfloat16_to_float32(pC[c_hstep]);
                         p11 += bfloat16_to_float32(pC[c_hstep + 1]);
                         pC += 2;
                     }

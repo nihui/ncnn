@@ -248,13 +248,8 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
     }
 
     {
-#if __aarch64__
-        // FIXME
-        qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
-#else
         qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
         // qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
-#endif
         ncnn::ParamDict pd;
         pd.set(2, 1);                   // transA
         pd.set(3, 0);                   // transB
