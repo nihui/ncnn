@@ -28,7 +28,8 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 #endif
 #endif // __ARM_NEON
 
-    support_bf16_storage = false;
+    // support_bf16_storage = false;
+    support_bf16_storage = true;
 
     q_gemm = 0;
     k_gemm = 0;
@@ -43,12 +44,23 @@ MultiHeadAttention_arm::MultiHeadAttention_arm()
 
 int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 {
+    // #if NCNN_INT8
+    //     if (int8_scale_term)
+    //     {
+    // support_packing = false;
+    //         return 0;
+    //     }
+    // #endif
+
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
-    opt.use_bf16_storage &= support_bf16_storage;
+    // opt.use_bf16_storage &= support_bf16_storage;
+
+    // opt.use_packing_layout = false;
 
     {
         qk_softmax = ncnn::create_layer_cpu(ncnn::LayerType::Softmax);
+        // qk_softmax = ncnn::create_layer_naive(ncnn::LayerType::Softmax);
         ncnn::ParamDict pd;
         pd.set(0, -1);
         pd.set(1, 1);
@@ -61,6 +73,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         q_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // q_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(0, scale);
         pd.set(1, 1.f);
@@ -76,11 +89,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);        // output_N1M
         pd.set(12, 1);        // output_elempack
         pd.set(14, 0);        // output_transpose
+        pd.set(18, int8_scale_term);
         q_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = q_weight_data;
-        weights[1] = q_bias_data;
-        q_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = q_weight_data;
+            weights[1] = q_bias_data;
+            Mat q_weight_data_int8_scale_mat(1);
+            q_weight_data_int8_scale_mat[0] = q_weight_data_int8_scale;
+            weights[2] = q_weight_data_int8_scale_mat;
+            q_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = q_weight_data;
+            weights[1] = q_bias_data;
+            q_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         q_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -92,6 +119,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         k_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // k_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 0);         // transA
         pd.set(3, 1);         // transB
@@ -105,11 +133,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);        // output_N1M
         pd.set(12, 1);        // output_elempack
         pd.set(14, 0);        // output_transpose
+        pd.set(18, int8_scale_term);
         k_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = k_weight_data;
-        weights[1] = k_bias_data;
-        k_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = k_weight_data;
+            weights[1] = k_bias_data;
+            Mat k_weight_data_int8_scale_mat(1);
+            k_weight_data_int8_scale_mat[0] = k_weight_data_int8_scale;
+            weights[2] = k_weight_data_int8_scale_mat;
+            k_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = k_weight_data;
+            weights[1] = k_bias_data;
+            k_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         k_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -121,6 +163,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         v_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // v_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 0);         // transA
         pd.set(3, 1);         // transB
@@ -134,11 +177,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);        // output_N1M
         pd.set(12, 1);        // output_elempack
         pd.set(14, 0);        // output_transpose
+        pd.set(18, int8_scale_term);
         v_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = v_weight_data;
-        weights[1] = v_bias_data;
-        v_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = v_weight_data;
+            weights[1] = v_bias_data;
+            Mat v_weight_data_int8_scale_mat(1);
+            v_weight_data_int8_scale_mat[0] = v_weight_data_int8_scale;
+            weights[2] = v_weight_data_int8_scale_mat;
+            v_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = v_weight_data;
+            weights[1] = v_bias_data;
+            v_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         v_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -150,6 +207,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         o_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // o_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 1);         // transA
         pd.set(3, 1);         // transB
@@ -161,11 +219,25 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(9, embed_dim); // K = maxk*inch
         pd.set(10, 4);        // constant_broadcast_type_C = null
         pd.set(11, 0);        // output_N1M
+        pd.set(18, int8_scale_term);
         o_gemm->load_param(pd);
-        Mat weights[2];
-        weights[0] = out_weight_data;
-        weights[1] = out_bias_data;
-        o_gemm->load_model(ModelBinFromMatArray(weights));
+        if (int8_scale_term)
+        {
+            Mat weights[3];
+            weights[0] = out_weight_data;
+            weights[1] = out_bias_data;
+            Mat out_weight_data_int8_scale_mat(1);
+            out_weight_data_int8_scale_mat[0] = out_weight_data_int8_scale;
+            weights[2] = out_weight_data_int8_scale_mat;
+            o_gemm->load_model(ModelBinFromMatArray(weights));
+        }
+        else
+        {
+            Mat weights[2];
+            weights[0] = out_weight_data;
+            weights[1] = out_bias_data;
+            o_gemm->load_model(ModelBinFromMatArray(weights));
+        }
         o_gemm->create_pipeline(opt);
 
         if (opt.lightmode)
@@ -177,6 +249,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         qk_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // qk_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 1);                   // transA
         pd.set(3, 0);                   // transB
@@ -189,6 +262,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(10, attn_mask ? 3 : -1); // constant_broadcast_type_C
         pd.set(11, 0);                  // output_N1M
         pd.set(12, 1);                  // output_elempack
+        pd.set(18, int8_scale_term);
         qk_gemm->load_param(pd);
         qk_gemm->load_model(ModelBinFromMatArray(0));
         Option opt1 = opt;
@@ -198,6 +272,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
 
     {
         qkv_gemm = ncnn::create_layer_cpu(ncnn::LayerType::Gemm);
+        // qkv_gemm = ncnn::create_layer_naive(ncnn::LayerType::Gemm);
         ncnn::ParamDict pd;
         pd.set(2, 0);   // transA
         pd.set(3, 1);   // transB
@@ -211,6 +286,7 @@ int MultiHeadAttention_arm::create_pipeline(const Option& _opt)
         pd.set(11, 0);  // output_N1M
         pd.set(12, 1);  // output_elempack
         pd.set(14, 1);  // output_transpose
+        pd.set(18, int8_scale_term);
         qkv_gemm->load_param(pd);
         qkv_gemm->load_model(ModelBinFromMatArray(0));
         Option opt1 = opt;
@@ -225,7 +301,7 @@ int MultiHeadAttention_arm::destroy_pipeline(const Option& _opt)
 {
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
-    opt.use_bf16_storage &= support_bf16_storage;
+    // opt.use_bf16_storage &= support_bf16_storage;
 
     if (qk_softmax)
     {
@@ -279,16 +355,199 @@ int MultiHeadAttention_arm::destroy_pipeline(const Option& _opt)
     return 0;
 }
 
+static void print_mat(const ncnn::Mat& m0)
+{
+    // return;
+    fprintf(stderr, "%d    %d %d %d @%d\n", m0.dims, m0.w, m0.h, m0.c, m0.elempack);
+
+    ncnn::Mat m;
+    if (m0.elempack != 1)
+    {
+        convert_packing(m0, m, 1);
+    }
+    else
+    {
+        m = m0;
+    }
+
+    const int TH = std::min(m.h, 5);
+    const int TW = std::min(m.w, 5);
+    for (int i = 0; i < TH; i++)
+    {
+        for (int j = 0; j < TW; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "...   ");
+        for (int j = m.w - TW; j < m.w; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "\n");
+    }
+    fprintf(stderr, "            ............\n");
+    for (int i = m.h - TH; i < m.h; i++)
+    {
+        for (int j = 0; j < TW; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "...   ");
+        for (int j = m.w - TW; j < m.w; j++)
+        {
+            fprintf(stderr, "%+.4f   ", m.row(i)[j]);
+        }
+        fprintf(stderr, "\n");
+    }
+}
+
 int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_blobs, const Option& _opt) const
 {
-    const Mat& q_blob = bottom_blobs[0];
-    const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
-    const Mat& v_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : (bottom_blobs.size() == 2 || (bottom_blobs.size() == 3 && attn_mask)) ? k_blob : bottom_blobs[2];
-    const Mat& attn_mask_blob = attn_mask ? bottom_blobs[bottom_blobs.size() - 1] : Mat();
+    // NCNN_LOGE("MultiHeadAttention_arm::forward");
+
+    // #if NCNN_INT8
+    //     if (int8_scale_term)
+    //     {
+    //         return MultiHeadAttention::forward(bottom_blobs, top_blobs, _opt);
+    //     }
+    // #endif
+
+    int q_blob_i = 0;
+    int k_blob_i = 0;
+    int v_blob_i = 0;
+    int attn_mask_i = 0;
+    int cached_xk_i = 0;
+    int cached_xv_i = 0;
+    if (kv_cache)
+    {
+        if (attn_mask)
+        {
+            // assert bottom_blobs.size() == 4/5/6
+            if (bottom_blobs.size() == 4)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+                attn_mask_i = 1;
+                cached_xk_i = 2;
+                cached_xv_i = 3;
+            }
+            if (bottom_blobs.size() == 5)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+                attn_mask_i = 2;
+                cached_xk_i = 3;
+                cached_xv_i = 4;
+            }
+            if (bottom_blobs.size() == 6)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+                attn_mask_i = 3;
+                cached_xk_i = 4;
+                cached_xv_i = 5;
+            }
+        }
+        else
+        {
+            // assert bottom_blobs.size() == 3/4/5
+            if (bottom_blobs.size() == 3)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+                cached_xk_i = 1;
+                cached_xv_i = 2;
+            }
+            if (bottom_blobs.size() == 4)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+                cached_xk_i = 2;
+                cached_xv_i = 3;
+            }
+            if (bottom_blobs.size() == 5)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+                cached_xk_i = 3;
+                cached_xv_i = 4;
+            }
+        }
+    }
+    else
+    {
+        if (attn_mask)
+        {
+            // assert bottom_blobs.size() == 2/3/4
+            if (bottom_blobs.size() == 2)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+                attn_mask_i = 1;
+            }
+            if (bottom_blobs.size() == 3)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+                attn_mask_i = 2;
+            }
+            if (bottom_blobs.size() == 4)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+                attn_mask_i = 3;
+            }
+        }
+        else
+        {
+            // assert bottom_blobs.size() == 1/2/3
+            if (bottom_blobs.size() == 1)
+            {
+                q_blob_i = 0;
+                k_blob_i = 0;
+                v_blob_i = 0;
+            }
+            if (bottom_blobs.size() == 2)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 1;
+            }
+            if (bottom_blobs.size() == 3)
+            {
+                q_blob_i = 0;
+                k_blob_i = 1;
+                v_blob_i = 2;
+            }
+        }
+    }
+
+    const Mat& q_blob = bottom_blobs[q_blob_i];
+    const Mat& k_blob = bottom_blobs[k_blob_i];
+    const Mat& v_blob = bottom_blobs[v_blob_i];
+    const Mat& attn_mask_blob = attn_mask ? bottom_blobs[attn_mask_i] : Mat();
+    const Mat& cached_xk_blob = kv_cache ? bottom_blobs[cached_xk_i] : Mat();
+    const Mat& cached_xv_blob = kv_cache ? bottom_blobs[cached_xv_i] : Mat();
+
+    // const Mat& q_blob = bottom_blobs[0];
+    // const Mat& k_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : bottom_blobs[1];
+    // const Mat& v_blob = (bottom_blobs.size() == 1 || (bottom_blobs.size() == 2 && attn_mask)) ? q_blob : (bottom_blobs.size() == 2 || (bottom_blobs.size() == 3 && attn_mask)) ? k_blob : bottom_blobs[2];
+    // const Mat& attn_mask_blob = attn_mask ? bottom_blobs[bottom_blobs.size() - 1] : Mat();
 
     Option opt = _opt;
     opt.use_fp16_storage &= support_fp16_storage;
-    opt.use_bf16_storage &= support_bf16_storage;
+    // opt.use_bf16_storage &= support_bf16_storage;
+
+    // opt.use_packing_layout = false;
 
     Mat attn_mask_blob_unpacked;
     if (attn_mask && attn_mask_blob.elempack != 1)
@@ -302,23 +561,116 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
         attn_mask_blob_unpacked = attn_mask_blob;
     }
 
+    // print_mat(attn_mask_blob_unpacked);
+
+    Mat cached_xk_blob_unpacked;
+    if (kv_cache && !cached_xk_blob.empty() && cached_xk_blob.elempack != 1)
+    {
+        convert_packing(cached_xk_blob, cached_xk_blob_unpacked, 1, opt);
+        if (cached_xk_blob_unpacked.empty())
+            return -100;
+    }
+    else
+    {
+        cached_xk_blob_unpacked = cached_xk_blob;
+    }
+
+    Mat cached_xv_blob_unpacked;
+    if (kv_cache && !cached_xv_blob.empty() && cached_xv_blob.elempack != 1)
+    {
+        convert_packing(cached_xv_blob, cached_xv_blob_unpacked, 1, opt);
+        if (cached_xv_blob_unpacked.empty())
+            return -100;
+    }
+    else
+    {
+        cached_xv_blob_unpacked = cached_xv_blob;
+    }
+
     const int embed_dim_per_head = embed_dim / num_heads;
     const int src_seqlen = q_blob.h * q_blob.elempack;
-    const int dst_seqlen = k_blob.h * k_blob.elempack;
+    // const int dst_seqlen = k_blob.h * k_blob.elempack;
+    const int dst_seqlen = (kv_cache && !cached_xk_blob_unpacked.empty()) ? (q_blob_i == k_blob_i ? (cached_xk_blob_unpacked.w + q_blob.h * q_blob.elempack) : cached_xk_blob_unpacked.w) : k_blob.h * k_blob.elempack;
 
     // const int elembits = q_blob.elembits();
 
     size_t elemsize = q_blob.elemsize / q_blob.elempack;
+
+    // NCNN_LOGE("MultiHeadAttention_arm::forward %d %d    %d %d", src_seqlen, dst_seqlen, cached_xk_blob_unpacked.w, cached_xv_blob_unpacked.w);
+
+    // NCNN_LOGE("X");
 
     Mat q_affine;
     int retq = q_gemm->forward(q_blob, q_affine, opt);
     if (retq != 0)
         return retq;
 
+    // print_mat(q_affine);
+
+    // NCNN_LOGE("XX");
+
+    // if (!cached_xk_blob_unpacked.empty())
+    // {
+    //     print_mat(cached_xk_blob_unpacked);
+    // }
+
     Mat k_affine;
-    int retk = k_gemm->forward(k_blob, k_affine, opt);
-    if (retk != 0)
-        return retk;
+    if (kv_cache && !cached_xk_blob_unpacked.empty())
+    {
+        if (q_blob_i == k_blob_i)
+        {
+            Mat k_affine_q;
+            int retk = k_gemm->forward(q_blob, k_affine_q, opt);
+            if (retk != 0)
+                return retk;
+
+            // assert dst_seqlen == cached_xk_blob_unpacked.w + k_affine_q.w
+
+            // merge cached_xk_blob_unpacked and k_affine_q
+            k_affine.create(dst_seqlen, embed_dim, k_affine_q.elemsize);
+            if (k_affine.empty())
+                return -100;
+
+            for (int i = 0; i < embed_dim; i++)
+            {
+                // const float* ptr = cached_xk_blob_unpacked.row(i);
+                // const float* ptrq = k_affine_q.row(i);
+                // float* outptr = k_affine.row(i);
+                //
+                // for (int j = 0; j < cached_xk_blob_unpacked.w; j++)
+                // {
+                //     *outptr++ = *ptr++;
+                // }
+                // for (int j = 0; j < k_affine_q.w; j++)
+                // {
+                //     *outptr++ = *ptrq++;
+                // }
+
+                const unsigned char* ptr = cached_xk_blob_unpacked.row<const unsigned char>(i);
+                const unsigned char* ptrq = k_affine_q.row<const unsigned char>(i);
+                unsigned char* outptr = k_affine.row<unsigned char>(i);
+
+                memcpy(outptr, ptr, cached_xk_blob_unpacked.w * k_affine.elemsize);
+                memcpy(outptr + cached_xk_blob_unpacked.w * k_affine.elemsize, ptrq, k_affine_q.w * k_affine.elemsize);
+            }
+        }
+        else
+        {
+            k_affine = cached_xk_blob_unpacked;
+        }
+    }
+    else
+    {
+        int retk = k_gemm->forward(k_blob, k_affine, opt);
+        if (retk != 0)
+            return retk;
+    }
+
+    // print_mat(k_affine);
+
+    // NCNN_LOGE("XXX");
+
+    // NCNN_LOGE("qk_cross %d %d", dst_seqlen, src_seqlen);
 
     Mat qk_cross(dst_seqlen, src_seqlen * num_heads, elemsize, opt.blob_allocator);
     if (qk_cross.empty())
@@ -350,16 +702,73 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
     }
 
     q_affine.release();
-    k_affine.release();
+    // k_affine.release();
+
+    // print_mat(qk_cross);
+
+    // NCNN_LOGE("XXXX");
 
     int retqk = qk_softmax->forward_inplace(qk_cross, opt);
     if (retqk != 0)
         return retqk;
 
+    // print_mat(qk_cross);
+
     Mat v_affine;
-    int retv = v_gemm->forward(v_blob, v_affine, opt);
-    if (retv != 0)
-        return retv;
+    if (kv_cache && !cached_xv_blob_unpacked.empty())
+    {
+        if (q_blob_i == v_blob_i)
+        {
+            Mat v_affine_q;
+            int retk = v_gemm->forward(v_blob, v_affine_q, opt);
+            if (retk != 0)
+                return retk;
+
+            // assert dst_seqlen == cached_xv_blob_unpacked.w + v_affine_q.w
+
+            // merge cached_xv_blob_unpacked and v_affine_q
+            v_affine.create(dst_seqlen, embed_dim, v_affine_q.elemsize);
+            if (v_affine.empty())
+                return -100;
+
+            for (int i = 0; i < embed_dim; i++)
+            {
+                // const float* ptr = cached_xv_blob_unpacked.row(i);
+                // const float* ptrq = v_affine_q.row(i);
+                // float* outptr = v_affine.row(i);
+                //
+                // for (int j = 0; j < cached_xv_blob_unpacked.w; j++)
+                // {
+                //     *outptr++ = *ptr++;
+                // }
+                // for (int j = 0; j < v_affine_q.w; j++)
+                // {
+                //     *outptr++ = *ptrq++;
+                // }
+
+                const unsigned char* ptr = cached_xv_blob_unpacked.row<const unsigned char>(i);
+                const unsigned char* ptrq = v_affine_q.row<const unsigned char>(i);
+                unsigned char* outptr = v_affine.row<unsigned char>(i);
+
+                memcpy(outptr, ptr, cached_xv_blob_unpacked.w * v_affine.elemsize);
+                memcpy(outptr + cached_xv_blob_unpacked.w * v_affine.elemsize, ptrq, v_affine_q.w * v_affine.elemsize);
+            }
+        }
+        else
+        {
+            v_affine = cached_xv_blob_unpacked;
+        }
+    }
+    else
+    {
+        int retv = v_gemm->forward(v_blob, v_affine, opt);
+        if (retv != 0)
+            return retv;
+    }
+
+    // print_mat(v_affine);
+
+    // NCNN_LOGE("XXXXX");
 
     Mat qkv_cross(src_seqlen, embed_dim_per_head * num_heads, elemsize, opt.blob_allocator);
     if (qkv_cross.empty())
@@ -385,11 +794,24 @@ int MultiHeadAttention_arm::forward(const std::vector<Mat>& bottom_blobs, std::v
             return retqkvs[i];
     }
 
-    v_affine.release();
+    // v_affine.release();
+
+    // print_mat(qkv_cross);
+
+    // NCNN_LOGE("XXXXXX");
 
     int reto = o_gemm->forward(qkv_cross, top_blobs[0], opt);
     if (reto != 0)
         return reto;
+
+    // print_mat(top_blobs[0]);
+
+    if (kv_cache)
+    {
+        // assert top_blobs.size() == 3
+        top_blobs[1] = k_affine;
+        top_blobs[2] = v_affine;
+    }
 
     return 0;
 }
