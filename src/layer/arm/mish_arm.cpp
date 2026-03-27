@@ -50,44 +50,46 @@ int Mish_arm::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
     int h = bottom_top_blob.h;
     int d = bottom_top_blob.d;
     int channels = bottom_top_blob.c;
-    int size = w * h * d;
     int elempack = bottom_top_blob.elempack;
-
-#if __ARM_NEON
-    if (elempack == 4)
-    {
-        #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            float* ptr = bottom_top_blob.channel(q);
-
-            for (int i = 0; i < size; i++)
-            {
-                float32x4_t _p = vld1q_f32(ptr);
-                _p = vmulq_f32(_p, tanh_ps(log_ps(vaddq_f32(exp_ps(_p), vdupq_n_f32(1.f)))));
-                vst1q_f32(ptr, _p);
-                ptr += 4;
-            }
-        }
-
-        return 0;
-    }
-#endif // __ARM_NEON
+    int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
     for (int q = 0; q < channels; q++)
     {
         float* ptr = bottom_top_blob.channel(q);
 
+        int i = 0;
 #if __ARM_NEON
-        int nn = size >> 2;
-        int remain = size - (nn << 2);
-#else
-        int remain = size;
-#endif // __ARM_NEON
-
-#if __ARM_NEON
-        for (; nn > 0; nn--)
+        float32x4_t _one = vdupq_n_f32(1.f);
+#if __aarch64__
+        for (; i + 15 < size; i += 16)
+        {
+            float32x4_t _p0 = vld1q_f32(ptr);
+            float32x4_t _p1 = vld1q_f32(ptr + 4);
+            float32x4_t _p2 = vld1q_f32(ptr + 8);
+            float32x4_t _p3 = vld1q_f32(ptr + 12);
+            _p0 = vmulq_f32(_p0, tanh_ps(log_ps(vaddq_f32(exp_ps(_p0), vdupq_n_f32(1.f)))));
+            _p1 = vmulq_f32(_p1, tanh_ps(log_ps(vaddq_f32(exp_ps(_p1), vdupq_n_f32(1.f)))));
+            _p2 = vmulq_f32(_p2, tanh_ps(log_ps(vaddq_f32(exp_ps(_p2), vdupq_n_f32(1.f)))));
+            _p3 = vmulq_f32(_p3, tanh_ps(log_ps(vaddq_f32(exp_ps(_p3), vdupq_n_f32(1.f)))));
+            vst1q_f32(ptr, _p0);
+            vst1q_f32(ptr + 4, _p1);
+            vst1q_f32(ptr + 8, _p2);
+            vst1q_f32(ptr + 12, _p3);
+            ptr += 16;
+        }
+#endif // __aarch64__
+        for (; i + 7 < size; i += 8)
+        {
+            float32x4_t _p0 = vld1q_f32(ptr);
+            float32x4_t _p1 = vld1q_f32(ptr + 4);
+            _p0 = vmulq_f32(_p0, tanh_ps(log_ps(vaddq_f32(exp_ps(_p0), vdupq_n_f32(1.f)))));
+            _p1 = vmulq_f32(_p1, tanh_ps(log_ps(vaddq_f32(exp_ps(_p1), vdupq_n_f32(1.f)))));
+            vst1q_f32(ptr, _p0);
+            vst1q_f32(ptr + 4, _p1);
+            ptr += 8;
+        }
+        for (; i + 3 < size; i += 4)
         {
             float32x4_t _p = vld1q_f32(ptr);
             _p = vmulq_f32(_p, tanh_ps(log_ps(vaddq_f32(exp_ps(_p), vdupq_n_f32(1.f)))));
@@ -95,9 +97,10 @@ int Mish_arm::forward_inplace(Mat& bottom_top_blob, const Option& opt) const
             ptr += 4;
         }
 #endif // __ARM_NEON
-        for (; remain > 0; remain--)
+        for (; i < size; i++)
         {
-            *ptr = *ptr * tanhf(logf(expf(*ptr) + 1.f));
+            *ptr = *ptr / (1.f + expf(-*ptr));
+
             ptr++;
         }
     }
@@ -112,44 +115,49 @@ int Mish_arm::forward_inplace_bf16s(Mat& bottom_top_blob, const Option& opt) con
     int h = bottom_top_blob.h;
     int d = bottom_top_blob.d;
     int channels = bottom_top_blob.c;
-    int size = w * h * d;
     int elempack = bottom_top_blob.elempack;
-
-#if __ARM_NEON
-    if (elempack == 4)
-    {
-        #pragma omp parallel for num_threads(opt.num_threads)
-        for (int q = 0; q < channels; q++)
-        {
-            unsigned short* ptr = bottom_top_blob.channel(q);
-
-            for (int i = 0; i < size; i++)
-            {
-                float32x4_t _p = bfloat2float(vld1_u16(ptr));
-                _p = vmulq_f32(_p, tanh_ps(log_ps(vaddq_f32(exp_ps(_p), vdupq_n_f32(1.f)))));
-                vst1_u16(ptr, float2bfloat(_p));
-                ptr += 4;
-            }
-        }
-
-        return 0;
-    }
-#endif // __ARM_NEON
+    int size = w * h * d * elempack;
 
     #pragma omp parallel for num_threads(opt.num_threads)
     for (int q = 0; q < channels; q++)
     {
         unsigned short* ptr = bottom_top_blob.channel(q);
 
+        int i = 0;
 #if __ARM_NEON
-        int nn = size >> 2;
-        int remain = size - (nn << 2);
-#else
-        int remain = size;
-#endif // __ARM_NEON
-
-#if __ARM_NEON
-        for (; nn > 0; nn--)
+        float32x4_t _one = vdupq_n_f32(1.f);
+#if __aarch64__
+        for (; i + 15 < size; i += 16)
+        {
+            uint16x8_t _p01 = vld1q_u16(ptr);
+            uint16x8_t _p23 = vld1q_u16(ptr + 8);
+            float32x4_t _p0 = bfloat2float(vget_low_u16(_p01));
+            float32x4_t _p1 = bfloat2float(vget_high_u16(_p01));
+            float32x4_t _p2 = bfloat2float(vget_low_u16(_p23));
+            float32x4_t _p3 = bfloat2float(vget_high_u16(_p23));
+            _p0 = vmulq_f32(_p0, tanh_ps(log_ps(vaddq_f32(exp_ps(_p0), vdupq_n_f32(1.f)))));
+            _p1 = vmulq_f32(_p1, tanh_ps(log_ps(vaddq_f32(exp_ps(_p1), vdupq_n_f32(1.f)))));
+            _p2 = vmulq_f32(_p2, tanh_ps(log_ps(vaddq_f32(exp_ps(_p2), vdupq_n_f32(1.f)))));
+            _p3 = vmulq_f32(_p3, tanh_ps(log_ps(vaddq_f32(exp_ps(_p3), vdupq_n_f32(1.f)))));
+            _p01 = vcombine_u16(float2bfloat(_p0), float2bfloat(_p1));
+            _p23 = vcombine_u16(float2bfloat(_p2), float2bfloat(_p3));
+            vst1q_u16(ptr, _p01);
+            vst1q_u16(ptr + 8, _p23);
+            ptr += 16;
+        }
+#endif // __aarch64__
+        for (; i + 7 < size; i += 8)
+        {
+            uint16x8_t _p = vld1q_u16(ptr);
+            float32x4_t _p0 = bfloat2float(vget_low_u16(_p));
+            float32x4_t _p1 = bfloat2float(vget_high_u16(_p));
+            _p0 = vmulq_f32(_p0, tanh_ps(log_ps(vaddq_f32(exp_ps(_p0), vdupq_n_f32(1.f)))));
+            _p1 = vmulq_f32(_p1, tanh_ps(log_ps(vaddq_f32(exp_ps(_p1), vdupq_n_f32(1.f)))));
+            _p = vcombine_u16(float2bfloat(_p0), float2bfloat(_p1));
+            vst1q_u16(ptr, _p);
+            ptr += 8;
+        }
+        for (; i + 3 < size; i += 4)
         {
             float32x4_t _p = bfloat2float(vld1_u16(ptr));
             _p = vmulq_f32(_p, tanh_ps(log_ps(vaddq_f32(exp_ps(_p), vdupq_n_f32(1.f)))));
@@ -157,11 +165,12 @@ int Mish_arm::forward_inplace_bf16s(Mat& bottom_top_blob, const Option& opt) con
             ptr += 4;
         }
 #endif // __ARM_NEON
-        for (; remain > 0; remain--)
+        for (; i < size; i++)
         {
             float v = bfloat16_to_float32(*ptr);
             v = v * tanhf(logf(expf(v) + 1.f));
             *ptr = float32_to_bfloat16(v);
+
             ptr++;
         }
     }
