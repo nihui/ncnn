@@ -3,9 +3,25 @@
 
 #include "sdpa_x86.h"
 
+#include <float.h>
+
+#if __SSE2__
+#include "sse_mathfun.h"
+#if __AVX__
+#include "avx_mathfun.h"
+#if __AVX512F__
+#include "avx512_mathfun.h"
+#endif // __AVX512F__
+#endif // __AVX__
+#endif // __SSE2__
+
+#include "cpu.h"
 #include "layer_type.h"
+#include "x86_usability.h"
 
 namespace ncnn {
+
+#include "sdpa_fa2.h"
 
 SDPA_x86::SDPA_x86()
 {
@@ -154,6 +170,14 @@ int SDPA_x86::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     const int out_embed_dim = cur_value.w;
     const int past_seqlen = kv_cache ? past_key.h : 0;
     const int dst_seqlen = past_seqlen + cur_seqlen;
+
+    if (int8_scale_term == 0
+            && query.elembits() == 32 && cur_key.elembits() == 32 && cur_value.elembits() == 32
+            && query.elempack == 1 && cur_key.elempack == 1 && cur_value.elempack == 1
+            && (!attn_mask || attn_mask_blob.elembits() == 32))
+    {
+        return sdpa_flash_attention_fp32(query, cur_key, cur_value, attn_mask_blob, past_key, past_value, top_blobs, opt, attn_mask, scale, kv_cache);
+    }
 
     const size_t elemsize = query.elemsize;
 
