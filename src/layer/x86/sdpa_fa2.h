@@ -850,7 +850,9 @@ static void sdpa_store_out_tile16_fp32(float* outptr, const float* out_tile, int
         pp += 16;
     }
 }
+#endif // __AVX512F__
 
+#if __AVX__
 static void sdpa_pack_query_tile8_fp32(const float* query, float* query_tile, int i, int embed_dim)
 {
     const float* qptr0 = query + (i + 0) * embed_dim;
@@ -900,7 +902,9 @@ static void sdpa_pack_query_tile8_fp32(const float* query, float* query_tile, in
         outptr[7] = qptr7[k];
     }
 }
+#endif // __AVX__
 
+#if __SSE2__
 static void sdpa_pack_query_tile4_fp32(const float* query, float* query_tile, int i, int embed_dim)
 {
     const float* qptr0 = query + (i + 0) * embed_dim;
@@ -934,17 +938,22 @@ static void sdpa_pack_query_tile4_fp32(const float* query, float* query_tile, in
         outptr[3] = qptr3[k];
     }
 }
+#endif // __SSE2__
 
+#if __AVX__
 static void sdpa_qk_tile_packedT8_fp32(const float* query_tile, const float* packed_key, float* score, int n_start, int max_jj, int embed_dim, int tile_n, float scale)
 {
     const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(tile_n, embed_dim);
     const int n_tile = n_start / tile_n;
     const float* packed_key_tile = packed_key + n_tile * packed_key_tile_stride;
+#if __AVX512F__
     const __m512 _scale16 = _mm512_set1_ps(scale);
+#endif // __AVX512F__
     const __m256 _scale = _mm256_set1_ps(scale);
 
     const float* pK = packed_key_tile;
     int j = 0;
+#if __AVX512F__
     for (; j + 15 < max_jj; j += 16)
     {
         __m512 _sum0 = _mm512_setzero_ps();
@@ -1003,6 +1012,7 @@ static void sdpa_qk_tile_packedT8_fp32(const float* query_tile, const float* pac
         _mm256_storeu_ps(outptr + 8 * 14, _mm512_extractf32x8_ps(_sum7, 0));
         _mm256_storeu_ps(outptr + 8 * 15, _mm512_extractf32x8_ps(_sum7, 1));
     }
+#endif // __AVX512F__
 
     for (; j + 7 < max_jj; j += 8)
     {
@@ -1098,18 +1108,25 @@ static void sdpa_qk_tile_packedT8_fp32(const float* query_tile, const float* pac
         _mm256_storeu_ps(score + j * 8, _mm256_mul_ps(_sum0, _scale));
     }
 }
+#endif // __AVX__
 
+#if __SSE2__
 static void sdpa_qk_tile_packedT4_fp32(const float* query_tile, const float* packed_key, float* score, int n_start, int max_jj, int embed_dim, int tile_n, float scale)
 {
     const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(tile_n, embed_dim);
     const int n_tile = n_start / tile_n;
     const float* packed_key_tile = packed_key + n_tile * packed_key_tile_stride;
+#if __AVX512F__
     const __m512 _scale16 = _mm512_set1_ps(scale);
+#endif // __AVX512F__
+#if __AVX__
     const __m256 _scale = _mm256_set1_ps(scale);
+#endif // __AVX__
     const __m128 _scale4 = _mm_set1_ps(scale);
 
     const float* pK = packed_key_tile;
     int j = 0;
+#if __AVX512F__
     for (; j + 15 < max_jj; j += 16)
     {
         __m512 _sum0 = _mm512_setzero_ps();
@@ -1144,7 +1161,9 @@ static void sdpa_qk_tile_packedT4_fp32(const float* query_tile, const float* pac
         _mm512_storeu_ps(outptr + 16 * 2, _sum2);
         _mm512_storeu_ps(outptr + 16 * 3, _sum3);
     }
+#endif // __AVX512F__
 
+#if __AVX__
     for (; j + 7 < max_jj; j += 8)
     {
         __m256 _sum0 = _mm256_setzero_ps();
@@ -1179,6 +1198,7 @@ static void sdpa_qk_tile_packedT4_fp32(const float* query_tile, const float* pac
         _mm256_storeu_ps(outptr + 8 * 2, _sum2);
         _mm256_storeu_ps(outptr + 8 * 3, _sum3);
     }
+#endif // __AVX__
 
     for (; j + 3 < max_jj; j += 4)
     {
@@ -1230,7 +1250,9 @@ static void sdpa_qk_tile_packedT4_fp32(const float* query_tile, const float* pac
         _mm_storeu_ps(score + j * 4, _mm_mul_ps(_sum0, _scale4));
     }
 }
+#endif // __SSE2__
 
+#if __AVX__
 static void sdpa_store_out_tile8_fp32(float* outptr, const float* out_tile, int out_embed_dim, __m256 _scale)
 {
     float* outptr0 = outptr;
@@ -1284,7 +1306,9 @@ static void sdpa_store_out_tile8_fp32(float* outptr, const float* out_tile, int 
         pp += 8;
     }
 }
+#endif // __AVX__
 
+#if __SSE2__
 static void sdpa_store_out_tile4_fp32(float* outptr, const float* out_tile, int out_embed_dim, __m128 _scale)
 {
     float* outptr0 = outptr;
@@ -1322,7 +1346,9 @@ static void sdpa_store_out_tile4_fp32(float* outptr, const float* out_tile, int 
         pp += 4;
     }
 }
+#endif // __SSE2__
 
+#if __AVX512F__
 static void sdpa_pv_tile_packedT16_fp32(float* out_tile, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
 {
     const float* vptr = packed_value_tile;
@@ -1478,13 +1504,16 @@ static void sdpa_pv_tile_packedT16_fp32(float* out_tile, const float* packed_val
         outptr_tile += 16;
     }
 }
+#endif // __AVX512F__
 
+#if __AVX__
 static void sdpa_pv_tile_packedT8_fp32(float* out_tile, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
 {
     const float* vptr = packed_value_tile;
     float* outptr_tile = out_tile;
 
     int k = 0;
+#if __AVX512F__
     for (; k + 15 < out_embed_dim; k += 16)
     {
         __m256 _out0 = _mm256_loadu_ps(outptr_tile);
@@ -1549,6 +1578,7 @@ static void sdpa_pv_tile_packedT8_fp32(float* out_tile, const float* packed_valu
         vptr += (size_t)max_jj * 16;
         outptr_tile += 128;
     }
+#endif // __AVX512F__
     for (; k + 7 < out_embed_dim; k += 8)
     {
         __m256 _out0 = _mm256_loadu_ps(outptr_tile);
@@ -1634,13 +1664,16 @@ static void sdpa_pv_tile_packedT8_fp32(float* out_tile, const float* packed_valu
         outptr_tile += 8;
     }
 }
+#endif // __AVX__
 
+#if __SSE2__
 static void sdpa_pv_tile_packedT4_fp32(float* out_tile, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
 {
     const float* vptr = packed_value_tile;
     float* outptr_tile = out_tile;
 
     int k = 0;
+#if __AVX512F__
     for (; k + 15 < out_embed_dim; k += 16)
     {
         __m128 _out0 = _mm_loadu_ps(outptr_tile);
@@ -1705,6 +1738,8 @@ static void sdpa_pv_tile_packedT4_fp32(float* out_tile, const float* packed_valu
         vptr += (size_t)max_jj * 16;
         outptr_tile += 64;
     }
+#endif // __AVX512F__
+#if __AVX__
     for (; k + 7 < out_embed_dim; k += 8)
     {
         __m128 _out0 = _mm_loadu_ps(outptr_tile);
@@ -1745,6 +1780,7 @@ static void sdpa_pv_tile_packedT4_fp32(float* out_tile, const float* packed_valu
         vptr += (size_t)max_jj * 8;
         outptr_tile += 32;
     }
+#endif // __AVX__
     for (; k + 3 < out_embed_dim; k += 4)
     {
         __m128 _out0 = _mm_loadu_ps(outptr_tile);
@@ -1790,12 +1826,14 @@ static void sdpa_pv_tile_packedT4_fp32(float* out_tile, const float* packed_valu
         outptr_tile += 4;
     }
 }
+#endif // __SSE2__
 
 static void sdpa_pv_tile_packedT1_fp32(float* outptr, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
 {
     const float* vptr = packed_value_tile;
 
     int k = 0;
+#if __AVX512F__
     for (; k + 15 < out_embed_dim; k += 16)
     {
         __m512 _out = _mm512_loadu_ps(outptr + k);
@@ -1808,6 +1846,8 @@ static void sdpa_pv_tile_packedT1_fp32(float* outptr, const float* packed_value_
         _mm512_storeu_ps(outptr + k, _out);
         vptr += (size_t)max_jj * 16;
     }
+#endif // __AVX512F__
+#if __AVX__
     for (; k + 7 < out_embed_dim; k += 8)
     {
         __m256 _out = _mm256_loadu_ps(outptr + k);
@@ -1820,6 +1860,8 @@ static void sdpa_pv_tile_packedT1_fp32(float* outptr, const float* packed_value_
         _mm256_storeu_ps(outptr + k, _out);
         vptr += (size_t)max_jj * 8;
     }
+#endif // __AVX__
+#if __SSE2__
     for (; k + 3 < out_embed_dim; k += 4)
     {
         __m128 _out = _mm_loadu_ps(outptr + k);
@@ -1832,6 +1874,7 @@ static void sdpa_pv_tile_packedT1_fp32(float* outptr, const float* packed_value_
         _mm_storeu_ps(outptr + k, _out);
         vptr += (size_t)max_jj * 4;
     }
+#endif // __SSE2__
     for (; k < out_embed_dim; k++)
     {
         float out = outptr[k];
@@ -1845,6 +1888,7 @@ static void sdpa_pv_tile_packedT1_fp32(float* outptr, const float* packed_value_
     }
 }
 
+#if __AVX512F__
 static void sdpa_pv_tile_unpackedT16_fp32(float* out_tile, const float* value, const float* score, int max_jj, int out_embed_dim)
 {
     float* outptr_tile = out_tile;
@@ -1927,7 +1971,9 @@ static void sdpa_pv_tile_unpackedT16_fp32(float* out_tile, const float* value, c
         outptr_tile += 16;
     }
 }
+#endif // __AVX512F__
 
+#if __AVX__
 static void sdpa_pv_tile_unpackedT8_fp32(float* out_tile, const float* value, const float* score, int max_jj, int out_embed_dim)
 {
     float* outptr_tile = out_tile;
@@ -1986,7 +2032,9 @@ static void sdpa_pv_tile_unpackedT8_fp32(float* out_tile, const float* value, co
         outptr_tile += 8;
     }
 }
+#endif // __AVX__
 
+#if __SSE2__
 static void sdpa_pv_tile_unpackedT4_fp32(float* out_tile, const float* value, const float* score, int max_jj, int out_embed_dim)
 {
     float* outptr_tile = out_tile;
@@ -2033,10 +2081,12 @@ static void sdpa_pv_tile_unpackedT4_fp32(float* out_tile, const float* value, co
         outptr_tile += 4;
     }
 }
+#endif // __SSE2__
 
 static void sdpa_pv_tile_unpackedT1_fp32(float* outptr, const float* value, const float* score, int max_jj, int out_embed_dim)
 {
     int k = 0;
+#if __AVX512F__
     for (; k + 15 < out_embed_dim; k += 16)
     {
         __m512 _out = _mm512_loadu_ps(outptr + k);
@@ -2048,6 +2098,8 @@ static void sdpa_pv_tile_unpackedT1_fp32(float* outptr, const float* value, cons
         }
         _mm512_storeu_ps(outptr + k, _out);
     }
+#endif // __AVX512F__
+#if __AVX__
     for (; k + 7 < out_embed_dim; k += 8)
     {
         __m256 _out = _mm256_loadu_ps(outptr + k);
@@ -2059,6 +2111,8 @@ static void sdpa_pv_tile_unpackedT1_fp32(float* outptr, const float* value, cons
         }
         _mm256_storeu_ps(outptr + k, _out);
     }
+#endif // __AVX__
+#if __SSE2__
     for (; k + 3 < out_embed_dim; k += 4)
     {
         __m128 _out = _mm_loadu_ps(outptr + k);
@@ -2070,6 +2124,7 @@ static void sdpa_pv_tile_unpackedT1_fp32(float* outptr, const float* value, cons
         }
         _mm_storeu_ps(outptr + k, _out);
     }
+#endif // __SSE2__
     for (; k < out_embed_dim; k++)
     {
         float out = outptr[k];
@@ -2083,6 +2138,7 @@ static void sdpa_pv_tile_unpackedT1_fp32(float* outptr, const float* value, cons
     }
 }
 
+#if __AVX512F__
 static void sdpa_flash_attention_tile_packedT16_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
 {
     const int MAX_BLOCK_M = 16;
@@ -2170,7 +2226,9 @@ static void sdpa_flash_attention_tile_packedT16_fp32(const float* query, const f
         memcpy(outptr, out_tile, (size_t)out_embed_dim * 16 * sizeof(float));
     }
 }
+#endif // __AVX512F__
 
+#if __AVX__
 static void sdpa_flash_attention_tile_packedT8_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
 {
     const int MAX_BLOCK_M = 8;
@@ -2258,7 +2316,9 @@ static void sdpa_flash_attention_tile_packedT8_fp32(const float* query, const fl
         memcpy(outptr, out_tile, (size_t)out_embed_dim * 8 * sizeof(float));
     }
 }
+#endif // __AVX__
 
+#if __SSE2__
 static void sdpa_flash_attention_tile_packedT4_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
 {
     const int MAX_BLOCK_M = 4;
@@ -2346,6 +2406,7 @@ static void sdpa_flash_attention_tile_packedT4_fp32(const float* query, const fl
         memcpy(outptr, out_tile, (size_t)out_embed_dim * 4 * sizeof(float));
     }
 }
+#endif // __SSE2__
 
 static void sdpa_flash_attention_tile_packedT1_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
 {
@@ -2373,6 +2434,7 @@ static void sdpa_flash_attention_tile_packedT1_fp32(const float* query, const fl
 
         const float* pK = packed_key_tile;
         int j = 0;
+#if __AVX512F__
         __m512 _scale16 = _mm512_set1_ps(scale);
         for (; j + 15 < max_jj; j += 16)
         {
@@ -2384,7 +2446,9 @@ static void sdpa_flash_attention_tile_packedT1_fp32(const float* query, const fl
             }
             _mm512_storeu_ps(score + j, _mm512_mul_ps(_sum, _scale16));
         }
+#endif // __AVX512F__
 
+#if __AVX__
         __m256 _scale8 = _mm256_set1_ps(scale);
         for (; j + 7 < max_jj; j += 8)
         {
@@ -2396,7 +2460,9 @@ static void sdpa_flash_attention_tile_packedT1_fp32(const float* query, const fl
             }
             _mm256_storeu_ps(score + j, _mm256_mul_ps(_sum, _scale8));
         }
+#endif // __AVX__
 
+#if __SSE2__
         __m128 _scale4 = _mm_set1_ps(scale);
         for (; j + 3 < max_jj; j += 4)
         {
@@ -2408,6 +2474,7 @@ static void sdpa_flash_attention_tile_packedT1_fp32(const float* query, const fl
             }
             _mm_storeu_ps(score + j, _mm_mul_ps(_sum, _scale4));
         }
+#endif // __SSE2__
 
         for (; j < max_jj; j++)
         {
@@ -2479,27 +2546,32 @@ static void sdpa_flash_attention_tile_packedT_fp32(const float* query, const flo
 {
     int ii = 0;
 
+#if __AVX512F__
     for (; ii + 15 < max_ii; ii += 16)
     {
         sdpa_flash_attention_tile_packedT16_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
+#endif // __AVX512F__
 
+#if __AVX__
     for (; ii + 7 < max_ii; ii += 8)
     {
         sdpa_flash_attention_tile_packedT8_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
+#endif // __AVX__
 
+#if __SSE2__
     for (; ii + 3 < max_ii; ii += 4)
     {
         sdpa_flash_attention_tile_packedT4_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
+#endif // __SSE2__
 
     for (; ii < max_ii; ii++)
     {
         sdpa_flash_attention_tile_packedT1_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
 }
-#endif // __AVX512F__
 
 static void sdpa_pv_tile_fp32(float* outptr, const float* value, const float* score, int max_ii, int n_start, int max_jj, int out_embed_dim)
 {
@@ -4412,7 +4484,6 @@ static void sdpa_flash_attention_reduce_fp32(float* outptr, const Mat& partials_
     }
 }
 
-#if __AVX512F__
 static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& partials_head, int block_m, int out_embed_dim, int num_kv_chunks)
 {
     const int MAX_BLOCK_M = 16;
@@ -4441,6 +4512,7 @@ static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& p
         const float* outptr_chunk = partial + MAX_BLOCK_M * 2;
 
         int ii = 0;
+#if __AVX512F__
         for (; ii + 15 < block_m; ii += 16)
         {
             __m512 _m0 = _mm512_loadu_ps(m_vec + ii);
@@ -4471,7 +4543,9 @@ static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& p
             _mm512_storeu_ps(m_vec + ii, _m);
             _mm512_storeu_ps(l_vec + ii, _l0);
         }
+#endif // __AVX512F__
 
+#if __AVX__
         for (; ii + 7 < block_m; ii += 8)
         {
             __m256 _m0 = _mm256_loadu_ps(m_vec + ii);
@@ -4502,7 +4576,9 @@ static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& p
             _mm256_storeu_ps(m_vec + ii, _m);
             _mm256_storeu_ps(l_vec + ii, _l0);
         }
+#endif // __AVX__
 
+#if __SSE2__
         for (; ii + 3 < block_m; ii += 4)
         {
             __m128 _m0 = _mm_loadu_ps(m_vec + ii);
@@ -4533,6 +4609,7 @@ static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& p
             _mm_storeu_ps(m_vec + ii, _m);
             _mm_storeu_ps(l_vec + ii, _l0);
         }
+#endif // __SSE2__
 
         for (; ii < block_m; ii++)
         {
@@ -4559,23 +4636,29 @@ static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& p
     }
 
     int ii = 0;
+#if __AVX512F__
     for (; ii + 15 < block_m; ii += 16)
     {
         __m512 _l = _mm512_loadu_ps(l_vec + ii);
         sdpa_store_out_tile16_fp32(outptr + ii * out_embed_dim, out_tile + ii * out_embed_dim, out_embed_dim, _mm512_div_ps(_mm512_set1_ps(1.f), _l));
     }
+#endif // __AVX512F__
 
+#if __AVX__
     for (; ii + 7 < block_m; ii += 8)
     {
         __m256 _l = _mm256_loadu_ps(l_vec + ii);
         sdpa_store_out_tile8_fp32(outptr + ii * out_embed_dim, out_tile + ii * out_embed_dim, out_embed_dim, _mm256_div_ps(_mm256_set1_ps(1.f), _l));
     }
+#endif // __AVX__
 
+#if __SSE2__
     for (; ii + 3 < block_m; ii += 4)
     {
         __m128 _l = _mm_loadu_ps(l_vec + ii);
         sdpa_store_out_tile4_fp32(outptr + ii * out_embed_dim, out_tile + ii * out_embed_dim, out_embed_dim, _mm_div_ps(_mm_set1_ps(1.f), _l));
     }
+#endif // __SSE2__
 
     for (; ii < block_m; ii++)
     {
@@ -4589,7 +4672,6 @@ static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& p
         }
     }
 }
-#endif // __AVX512F__
 
 static int sdpa_concat_kv_cache_fp32(const Mat& cur_key, const Mat& cur_value, const Mat& past_key, const Mat& past_value, Mat& key, Mat& value, const Option& opt)
 {
@@ -4687,7 +4769,6 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
 
     Mat packed_key;
     Mat packed_value;
-#if __AVX512F__
     if (past_seqlen == 0 && src_seqlen >= 32 && embed_dim <= 128 && !attn_mask && out_embed_dim <= 128)
     {
         int ret = sdpa_pack_key_transpose_fp32(cur_key, packed_key, TILE_N, opt);
@@ -4702,7 +4783,6 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 return ret;
         }
     }
-#endif // __AVX512F__
 
     const int use_packed_key = !packed_key.empty();
     const int use_packed_value = !packed_value.empty();
@@ -4756,7 +4836,6 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
         }
         else
         {
-#if __AVX512F__
             #pragma omp parallel for num_threads(opt.num_threads)
             for (int task_id = 0; task_id < num_tiles; task_id++)
             {
@@ -4796,7 +4875,6 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 (void)mask_stride;
                 sdpa_flash_attention_tile_packedT_fp32(query_ptr, packed_key_ptr, cur_value_ptr, packed_value_ptr, outptr0, score, m_vec, l_vec, i, max_ii, 0, dst_seqlen, TILE_N, embed_dim, out_embed_dim, _scale, true);
             }
-#endif // __AVX512F__
         }
     }
     else
@@ -4854,7 +4932,6 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
         }
         else
         {
-#if __AVX512F__
             #pragma omp parallel for num_threads(opt.num_threads)
             for (int task_id = 0; task_id < num_tiles * num_kv_chunks; task_id++)
             {
@@ -4898,7 +4975,6 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 (void)mask_stride;
                 sdpa_flash_attention_tile_packedT_fp32(query_ptr, packed_key_ptr, cur_value_ptr, packed_value_ptr, outptr0, score, m_vec, l_vec, i, max_ii, n_begin, n_end, TILE_N, embed_dim, out_embed_dim, _scale, false);
             }
-#endif // __AVX512F__
         }
 
         #pragma omp parallel for num_threads(opt.num_threads)
@@ -4910,13 +4986,11 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
             const int max_ii = i + TILE_M < src_seqlen ? TILE_M : src_seqlen - i;
 
             Mat top_blob_head = top_blob.channel(q);
-#if __AVX512F__
             if (use_packed_key && !attn_mask && out_embed_dim <= 128)
             {
                 sdpa_flash_attention_reduce_packedT_fp32(top_blob_head.row(i), partials.channel(tile_id), max_ii, out_embed_dim, num_kv_chunks);
             }
             else
-#endif // __AVX512F__
             {
                 sdpa_flash_attention_reduce_fp32(top_blob_head.row(i), partials.channel(tile_id), max_ii, out_embed_dim, num_kv_chunks);
             }
