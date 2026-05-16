@@ -515,740 +515,1991 @@ static void sdpa_qk_tile_fp32(const float* query, const float* key, float* score
     }
 }
 
-static void sdpa_qk_tile_packed_fp32(const float* query, const float* packed_key, float* score, int i, int max_ii, int n_start, int max_jj, int embed_dim, int dst_seqlen, float scale)
+static inline size_t sdpa_packed_key_tile_stride_fp32(int tile_n, int embed_dim)
 {
-    const int BLOCK_N = 256;
+    return (size_t)tile_n * embed_dim;
+}
 
-    int ii = 0;
+static inline size_t sdpa_packed_value_tile_stride_fp32(int tile_n, int out_embed_dim)
+{
+    return (size_t)tile_n * out_embed_dim;
+}
+
 #if __AVX512F__
-    for (; ii + 15 < max_ii; ii += 16)
+static void sdpa_pack_query_tile16_fp32(const float* query, float* query_tile, int i, int embed_dim)
+{
+    const float* qptr0 = query + (i + 0) * embed_dim;
+    const float* qptr1 = query + (i + 1) * embed_dim;
+    const float* qptr2 = query + (i + 2) * embed_dim;
+    const float* qptr3 = query + (i + 3) * embed_dim;
+    const float* qptr4 = query + (i + 4) * embed_dim;
+    const float* qptr5 = query + (i + 5) * embed_dim;
+    const float* qptr6 = query + (i + 6) * embed_dim;
+    const float* qptr7 = query + (i + 7) * embed_dim;
+    const float* qptr8 = query + (i + 8) * embed_dim;
+    const float* qptr9 = query + (i + 9) * embed_dim;
+    const float* qptra = query + (i + 10) * embed_dim;
+    const float* qptrb = query + (i + 11) * embed_dim;
+    const float* qptrc = query + (i + 12) * embed_dim;
+    const float* qptrd = query + (i + 13) * embed_dim;
+    const float* qptre = query + (i + 14) * embed_dim;
+    const float* qptrf = query + (i + 15) * embed_dim;
+
+    int k = 0;
+    for (; k + 15 < embed_dim; k += 16)
     {
-        const float* qptr0 = query + (i + ii) * embed_dim;
-        const float* qptr1 = query + (i + ii + 1) * embed_dim;
-        const float* qptr2 = query + (i + ii + 2) * embed_dim;
-        const float* qptr3 = query + (i + ii + 3) * embed_dim;
-        const float* qptr4 = query + (i + ii + 4) * embed_dim;
-        const float* qptr5 = query + (i + ii + 5) * embed_dim;
-        const float* qptr6 = query + (i + ii + 6) * embed_dim;
-        const float* qptr7 = query + (i + ii + 7) * embed_dim;
-        const float* qptr8 = query + (i + ii + 8) * embed_dim;
-        const float* qptr9 = query + (i + ii + 9) * embed_dim;
-        const float* qptra = query + (i + ii + 10) * embed_dim;
-        const float* qptrb = query + (i + ii + 11) * embed_dim;
-        const float* qptrc = query + (i + ii + 12) * embed_dim;
-        const float* qptrd = query + (i + ii + 13) * embed_dim;
-        const float* qptre = query + (i + ii + 14) * embed_dim;
-        const float* qptrf = query + (i + ii + 15) * embed_dim;
+        __m512 _r0 = _mm512_loadu_ps(qptr0 + k);
+        __m512 _r1 = _mm512_loadu_ps(qptr1 + k);
+        __m512 _r2 = _mm512_loadu_ps(qptr2 + k);
+        __m512 _r3 = _mm512_loadu_ps(qptr3 + k);
+        __m512 _r4 = _mm512_loadu_ps(qptr4 + k);
+        __m512 _r5 = _mm512_loadu_ps(qptr5 + k);
+        __m512 _r6 = _mm512_loadu_ps(qptr6 + k);
+        __m512 _r7 = _mm512_loadu_ps(qptr7 + k);
+        __m512 _r8 = _mm512_loadu_ps(qptr8 + k);
+        __m512 _r9 = _mm512_loadu_ps(qptr9 + k);
+        __m512 _ra = _mm512_loadu_ps(qptra + k);
+        __m512 _rb = _mm512_loadu_ps(qptrb + k);
+        __m512 _rc = _mm512_loadu_ps(qptrc + k);
+        __m512 _rd = _mm512_loadu_ps(qptrd + k);
+        __m512 _re = _mm512_loadu_ps(qptre + k);
+        __m512 _rf = _mm512_loadu_ps(qptrf + k);
 
-        float* sptr0 = score + ii * BLOCK_N;
-        float* sptr1 = sptr0 + BLOCK_N;
-        float* sptr2 = sptr1 + BLOCK_N;
-        float* sptr3 = sptr2 + BLOCK_N;
-        float* sptr4 = sptr3 + BLOCK_N;
-        float* sptr5 = sptr4 + BLOCK_N;
-        float* sptr6 = sptr5 + BLOCK_N;
-        float* sptr7 = sptr6 + BLOCK_N;
-        float* sptr8 = sptr7 + BLOCK_N;
-        float* sptr9 = sptr8 + BLOCK_N;
-        float* sptra = sptr9 + BLOCK_N;
-        float* sptrb = sptra + BLOCK_N;
-        float* sptrc = sptrb + BLOCK_N;
-        float* sptrd = sptrc + BLOCK_N;
-        float* sptre = sptrd + BLOCK_N;
-        float* sptrf = sptre + BLOCK_N;
+        transpose16x16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
 
-        int j = 0;
-        __m512 _scale = _mm512_set1_ps(scale);
-        for (; j + 15 < max_jj; j += 16)
+        float* outptr = query_tile + k * 16;
+        _mm512_storeu_ps(outptr, _r0);
+        _mm512_storeu_ps(outptr + 16, _r1);
+        _mm512_storeu_ps(outptr + 32, _r2);
+        _mm512_storeu_ps(outptr + 48, _r3);
+        _mm512_storeu_ps(outptr + 64, _r4);
+        _mm512_storeu_ps(outptr + 80, _r5);
+        _mm512_storeu_ps(outptr + 96, _r6);
+        _mm512_storeu_ps(outptr + 112, _r7);
+        _mm512_storeu_ps(outptr + 128, _r8);
+        _mm512_storeu_ps(outptr + 144, _r9);
+        _mm512_storeu_ps(outptr + 160, _ra);
+        _mm512_storeu_ps(outptr + 176, _rb);
+        _mm512_storeu_ps(outptr + 192, _rc);
+        _mm512_storeu_ps(outptr + 208, _rd);
+        _mm512_storeu_ps(outptr + 224, _re);
+        _mm512_storeu_ps(outptr + 240, _rf);
+    }
+
+    for (; k < embed_dim; k++)
+    {
+        float* outptr = query_tile + k * 16;
+        outptr[0] = qptr0[k];
+        outptr[1] = qptr1[k];
+        outptr[2] = qptr2[k];
+        outptr[3] = qptr3[k];
+        outptr[4] = qptr4[k];
+        outptr[5] = qptr5[k];
+        outptr[6] = qptr6[k];
+        outptr[7] = qptr7[k];
+        outptr[8] = qptr8[k];
+        outptr[9] = qptr9[k];
+        outptr[10] = qptra[k];
+        outptr[11] = qptrb[k];
+        outptr[12] = qptrc[k];
+        outptr[13] = qptrd[k];
+        outptr[14] = qptre[k];
+        outptr[15] = qptrf[k];
+    }
+}
+
+static void sdpa_qk_tile_packedT_fp32(const float* query_tile, const float* packed_key, float* score, int n_start, int max_jj, int embed_dim, int tile_n, float scale)
+{
+    const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(tile_n, embed_dim);
+    const int n_tile = n_start / tile_n;
+    const float* packed_key_tile = packed_key + n_tile * packed_key_tile_stride;
+    const __m512 _scale = _mm512_set1_ps(scale);
+
+    const float* pK = packed_key_tile;
+    int j = 0;
+    for (; j + 15 < max_jj; j += 16)
+    {
+        __m512 _sum0 = _mm512_setzero_ps();
+        __m512 _sum1 = _mm512_setzero_ps();
+        __m512 _sum2 = _mm512_setzero_ps();
+        __m512 _sum3 = _mm512_setzero_ps();
+        __m512 _sum4 = _mm512_setzero_ps();
+        __m512 _sum5 = _mm512_setzero_ps();
+        __m512 _sum6 = _mm512_setzero_ps();
+        __m512 _sum7 = _mm512_setzero_ps();
+        __m512 _sum8 = _mm512_setzero_ps();
+        __m512 _sum9 = _mm512_setzero_ps();
+        __m512 _suma = _mm512_setzero_ps();
+        __m512 _sumb = _mm512_setzero_ps();
+        __m512 _sumc = _mm512_setzero_ps();
+        __m512 _sumd = _mm512_setzero_ps();
+        __m512 _sume = _mm512_setzero_ps();
+        __m512 _sumf = _mm512_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
         {
-            const float* kptr = packed_key + n_start + j;
+            __m512 _q = _mm512_loadu_ps(pQ);
 
-            __m512 _sum0 = _mm512_setzero_ps();
-            __m512 _sum1 = _mm512_setzero_ps();
-            __m512 _sum2 = _mm512_setzero_ps();
-            __m512 _sum3 = _mm512_setzero_ps();
-            __m512 _sum4 = _mm512_setzero_ps();
-            __m512 _sum5 = _mm512_setzero_ps();
-            __m512 _sum6 = _mm512_setzero_ps();
-            __m512 _sum7 = _mm512_setzero_ps();
-            __m512 _sum8 = _mm512_setzero_ps();
-            __m512 _sum9 = _mm512_setzero_ps();
-            __m512 _suma = _mm512_setzero_ps();
-            __m512 _sumb = _mm512_setzero_ps();
-            __m512 _sumc = _mm512_setzero_ps();
-            __m512 _sumd = _mm512_setzero_ps();
-            __m512 _sume = _mm512_setzero_ps();
-            __m512 _sumf = _mm512_setzero_ps();
+            _sum0 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[0]), _sum0);
+            _sum1 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[1]), _sum1);
+            _sum2 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[2]), _sum2);
+            _sum3 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[3]), _sum3);
+            _sum4 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[4]), _sum4);
+            _sum5 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[5]), _sum5);
+            _sum6 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[6]), _sum6);
+            _sum7 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[7]), _sum7);
+            _sum8 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[8]), _sum8);
+            _sum9 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[9]), _sum9);
+            _suma = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[10]), _suma);
+            _sumb = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[11]), _sumb);
+            _sumc = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[12]), _sumc);
+            _sumd = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[13]), _sumd);
+            _sume = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[14]), _sume);
+            _sumf = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[15]), _sumf);
 
-            for (int k = 0; k < embed_dim; k++)
-            {
-                __m512 _k = _mm512_loadu_ps(kptr);
-                _sum0 = _mm512_fmadd_ps(_mm512_set1_ps(qptr0[k]), _k, _sum0);
-                _sum1 = _mm512_fmadd_ps(_mm512_set1_ps(qptr1[k]), _k, _sum1);
-                _sum2 = _mm512_fmadd_ps(_mm512_set1_ps(qptr2[k]), _k, _sum2);
-                _sum3 = _mm512_fmadd_ps(_mm512_set1_ps(qptr3[k]), _k, _sum3);
-                _sum4 = _mm512_fmadd_ps(_mm512_set1_ps(qptr4[k]), _k, _sum4);
-                _sum5 = _mm512_fmadd_ps(_mm512_set1_ps(qptr5[k]), _k, _sum5);
-                _sum6 = _mm512_fmadd_ps(_mm512_set1_ps(qptr6[k]), _k, _sum6);
-                _sum7 = _mm512_fmadd_ps(_mm512_set1_ps(qptr7[k]), _k, _sum7);
-                _sum8 = _mm512_fmadd_ps(_mm512_set1_ps(qptr8[k]), _k, _sum8);
-                _sum9 = _mm512_fmadd_ps(_mm512_set1_ps(qptr9[k]), _k, _sum9);
-                _suma = _mm512_fmadd_ps(_mm512_set1_ps(qptra[k]), _k, _suma);
-                _sumb = _mm512_fmadd_ps(_mm512_set1_ps(qptrb[k]), _k, _sumb);
-                _sumc = _mm512_fmadd_ps(_mm512_set1_ps(qptrc[k]), _k, _sumc);
-                _sumd = _mm512_fmadd_ps(_mm512_set1_ps(qptrd[k]), _k, _sumd);
-                _sume = _mm512_fmadd_ps(_mm512_set1_ps(qptre[k]), _k, _sume);
-                _sumf = _mm512_fmadd_ps(_mm512_set1_ps(qptrf[k]), _k, _sumf);
-                kptr += dst_seqlen;
-            }
-
-            _mm512_storeu_ps(sptr0 + j, _mm512_mul_ps(_sum0, _scale));
-            _mm512_storeu_ps(sptr1 + j, _mm512_mul_ps(_sum1, _scale));
-            _mm512_storeu_ps(sptr2 + j, _mm512_mul_ps(_sum2, _scale));
-            _mm512_storeu_ps(sptr3 + j, _mm512_mul_ps(_sum3, _scale));
-            _mm512_storeu_ps(sptr4 + j, _mm512_mul_ps(_sum4, _scale));
-            _mm512_storeu_ps(sptr5 + j, _mm512_mul_ps(_sum5, _scale));
-            _mm512_storeu_ps(sptr6 + j, _mm512_mul_ps(_sum6, _scale));
-            _mm512_storeu_ps(sptr7 + j, _mm512_mul_ps(_sum7, _scale));
-            _mm512_storeu_ps(sptr8 + j, _mm512_mul_ps(_sum8, _scale));
-            _mm512_storeu_ps(sptr9 + j, _mm512_mul_ps(_sum9, _scale));
-            _mm512_storeu_ps(sptra + j, _mm512_mul_ps(_suma, _scale));
-            _mm512_storeu_ps(sptrb + j, _mm512_mul_ps(_sumb, _scale));
-            _mm512_storeu_ps(sptrc + j, _mm512_mul_ps(_sumc, _scale));
-            _mm512_storeu_ps(sptrd + j, _mm512_mul_ps(_sumd, _scale));
-            _mm512_storeu_ps(sptre + j, _mm512_mul_ps(_sume, _scale));
-            _mm512_storeu_ps(sptrf + j, _mm512_mul_ps(_sumf, _scale));
+            pQ += 16;
+            pK += 16;
         }
-        for (; j < max_jj; j++)
+
+        float* outptr = score + j * 16;
+        _mm512_storeu_ps(outptr, _mm512_mul_ps(_sum0, _scale));
+        _mm512_storeu_ps(outptr + 16, _mm512_mul_ps(_sum1, _scale));
+        _mm512_storeu_ps(outptr + 16 * 2, _mm512_mul_ps(_sum2, _scale));
+        _mm512_storeu_ps(outptr + 16 * 3, _mm512_mul_ps(_sum3, _scale));
+        _mm512_storeu_ps(outptr + 16 * 4, _mm512_mul_ps(_sum4, _scale));
+        _mm512_storeu_ps(outptr + 16 * 5, _mm512_mul_ps(_sum5, _scale));
+        _mm512_storeu_ps(outptr + 16 * 6, _mm512_mul_ps(_sum6, _scale));
+        _mm512_storeu_ps(outptr + 16 * 7, _mm512_mul_ps(_sum7, _scale));
+        _mm512_storeu_ps(outptr + 16 * 8, _mm512_mul_ps(_sum8, _scale));
+        _mm512_storeu_ps(outptr + 16 * 9, _mm512_mul_ps(_sum9, _scale));
+        _mm512_storeu_ps(outptr + 16 * 10, _mm512_mul_ps(_suma, _scale));
+        _mm512_storeu_ps(outptr + 16 * 11, _mm512_mul_ps(_sumb, _scale));
+        _mm512_storeu_ps(outptr + 16 * 12, _mm512_mul_ps(_sumc, _scale));
+        _mm512_storeu_ps(outptr + 16 * 13, _mm512_mul_ps(_sumd, _scale));
+        _mm512_storeu_ps(outptr + 16 * 14, _mm512_mul_ps(_sume, _scale));
+        _mm512_storeu_ps(outptr + 16 * 15, _mm512_mul_ps(_sumf, _scale));
+    }
+
+    for (; j + 7 < max_jj; j += 8)
+    {
+        __m512 _sum0 = _mm512_setzero_ps();
+        __m512 _sum1 = _mm512_setzero_ps();
+        __m512 _sum2 = _mm512_setzero_ps();
+        __m512 _sum3 = _mm512_setzero_ps();
+        __m512 _sum4 = _mm512_setzero_ps();
+        __m512 _sum5 = _mm512_setzero_ps();
+        __m512 _sum6 = _mm512_setzero_ps();
+        __m512 _sum7 = _mm512_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
         {
-            const float* kptr = packed_key + n_start + j;
+            __m512 _q = _mm512_loadu_ps(pQ);
 
-            float sum0 = 0.f;
-            float sum1 = 0.f;
-            float sum2 = 0.f;
-            float sum3 = 0.f;
-            float sum4 = 0.f;
-            float sum5 = 0.f;
-            float sum6 = 0.f;
-            float sum7 = 0.f;
-            float sum8 = 0.f;
-            float sum9 = 0.f;
-            float suma = 0.f;
-            float sumb = 0.f;
-            float sumc = 0.f;
-            float sumd = 0.f;
-            float sume = 0.f;
-            float sumf = 0.f;
+            _sum0 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[0]), _sum0);
+            _sum1 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[1]), _sum1);
+            _sum2 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[2]), _sum2);
+            _sum3 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[3]), _sum3);
+            _sum4 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[4]), _sum4);
+            _sum5 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[5]), _sum5);
+            _sum6 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[6]), _sum6);
+            _sum7 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[7]), _sum7);
 
-            for (int k = 0; k < embed_dim; k++)
+            pQ += 16;
+            pK += 8;
+        }
+
+        float* outptr = score + j * 16;
+        _mm512_storeu_ps(outptr, _mm512_mul_ps(_sum0, _scale));
+        _mm512_storeu_ps(outptr + 16, _mm512_mul_ps(_sum1, _scale));
+        _mm512_storeu_ps(outptr + 16 * 2, _mm512_mul_ps(_sum2, _scale));
+        _mm512_storeu_ps(outptr + 16 * 3, _mm512_mul_ps(_sum3, _scale));
+        _mm512_storeu_ps(outptr + 16 * 4, _mm512_mul_ps(_sum4, _scale));
+        _mm512_storeu_ps(outptr + 16 * 5, _mm512_mul_ps(_sum5, _scale));
+        _mm512_storeu_ps(outptr + 16 * 6, _mm512_mul_ps(_sum6, _scale));
+        _mm512_storeu_ps(outptr + 16 * 7, _mm512_mul_ps(_sum7, _scale));
+    }
+
+    for (; j + 3 < max_jj; j += 4)
+    {
+        __m512 _sum0 = _mm512_setzero_ps();
+        __m512 _sum1 = _mm512_setzero_ps();
+        __m512 _sum2 = _mm512_setzero_ps();
+        __m512 _sum3 = _mm512_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m512 _q = _mm512_loadu_ps(pQ);
+
+            _sum0 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[0]), _sum0);
+            _sum1 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[1]), _sum1);
+            _sum2 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[2]), _sum2);
+            _sum3 = _mm512_fmadd_ps(_q, _mm512_set1_ps(pK[3]), _sum3);
+
+            pQ += 16;
+            pK += 4;
+        }
+
+        float* outptr = score + j * 16;
+        _mm512_storeu_ps(outptr, _mm512_mul_ps(_sum0, _scale));
+        _mm512_storeu_ps(outptr + 16, _mm512_mul_ps(_sum1, _scale));
+        _mm512_storeu_ps(outptr + 16 * 2, _mm512_mul_ps(_sum2, _scale));
+        _mm512_storeu_ps(outptr + 16 * 3, _mm512_mul_ps(_sum3, _scale));
+    }
+
+    for (; j < max_jj; j++)
+    {
+        const float* pQ = query_tile;
+        __m512 _sum0 = _mm512_setzero_ps();
+
+        for (int k = 0; k < embed_dim; k++)
+        {
+            _sum0 = _mm512_fmadd_ps(_mm512_loadu_ps(pQ), _mm512_set1_ps(pK[k]), _sum0);
+            pQ += 16;
+        }
+
+        pK += embed_dim;
+        _mm512_storeu_ps(score + j * 16, _mm512_mul_ps(_sum0, _scale));
+    }
+}
+
+static void sdpa_store_out_tile16_fp32(float* outptr, const float* out_tile, int out_embed_dim, __m512 _scale)
+{
+    float* outptr0 = outptr;
+    float* outptr1 = outptr0 + out_embed_dim;
+    float* outptr2 = outptr1 + out_embed_dim;
+    float* outptr3 = outptr2 + out_embed_dim;
+    float* outptr4 = outptr3 + out_embed_dim;
+    float* outptr5 = outptr4 + out_embed_dim;
+    float* outptr6 = outptr5 + out_embed_dim;
+    float* outptr7 = outptr6 + out_embed_dim;
+    float* outptr8 = outptr7 + out_embed_dim;
+    float* outptr9 = outptr8 + out_embed_dim;
+    float* outptra = outptr9 + out_embed_dim;
+    float* outptrb = outptra + out_embed_dim;
+    float* outptrc = outptrb + out_embed_dim;
+    float* outptrd = outptrc + out_embed_dim;
+    float* outptre = outptrd + out_embed_dim;
+    float* outptrf = outptre + out_embed_dim;
+
+    const float* pp = out_tile;
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m512 _r0 = _mm512_mul_ps(_mm512_loadu_ps(pp), _scale);
+        __m512 _r1 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16), _scale);
+        __m512 _r2 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 2), _scale);
+        __m512 _r3 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 3), _scale);
+        __m512 _r4 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 4), _scale);
+        __m512 _r5 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 5), _scale);
+        __m512 _r6 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 6), _scale);
+        __m512 _r7 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 7), _scale);
+        __m512 _r8 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 8), _scale);
+        __m512 _r9 = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 9), _scale);
+        __m512 _ra = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 10), _scale);
+        __m512 _rb = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 11), _scale);
+        __m512 _rc = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 12), _scale);
+        __m512 _rd = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 13), _scale);
+        __m512 _re = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 14), _scale);
+        __m512 _rf = _mm512_mul_ps(_mm512_loadu_ps(pp + 16 * 15), _scale);
+
+        transpose16x16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
+
+        _mm512_storeu_ps(outptr0 + k, _r0);
+        _mm512_storeu_ps(outptr1 + k, _r1);
+        _mm512_storeu_ps(outptr2 + k, _r2);
+        _mm512_storeu_ps(outptr3 + k, _r3);
+        _mm512_storeu_ps(outptr4 + k, _r4);
+        _mm512_storeu_ps(outptr5 + k, _r5);
+        _mm512_storeu_ps(outptr6 + k, _r6);
+        _mm512_storeu_ps(outptr7 + k, _r7);
+        _mm512_storeu_ps(outptr8 + k, _r8);
+        _mm512_storeu_ps(outptr9 + k, _r9);
+        _mm512_storeu_ps(outptra + k, _ra);
+        _mm512_storeu_ps(outptrb + k, _rb);
+        _mm512_storeu_ps(outptrc + k, _rc);
+        _mm512_storeu_ps(outptrd + k, _rd);
+        _mm512_storeu_ps(outptre + k, _re);
+        _mm512_storeu_ps(outptrf + k, _rf);
+
+        pp += 256;
+    }
+
+    float scale[16];
+    _mm512_storeu_ps(scale, _scale);
+    for (; k < out_embed_dim; k++)
+    {
+        outptr0[k] = pp[0] * scale[0];
+        outptr1[k] = pp[1] * scale[1];
+        outptr2[k] = pp[2] * scale[2];
+        outptr3[k] = pp[3] * scale[3];
+        outptr4[k] = pp[4] * scale[4];
+        outptr5[k] = pp[5] * scale[5];
+        outptr6[k] = pp[6] * scale[6];
+        outptr7[k] = pp[7] * scale[7];
+        outptr8[k] = pp[8] * scale[8];
+        outptr9[k] = pp[9] * scale[9];
+        outptra[k] = pp[10] * scale[10];
+        outptrb[k] = pp[11] * scale[11];
+        outptrc[k] = pp[12] * scale[12];
+        outptrd[k] = pp[13] * scale[13];
+        outptre[k] = pp[14] * scale[14];
+        outptrf[k] = pp[15] * scale[15];
+        pp += 16;
+    }
+}
+
+static void sdpa_pack_query_tile8_fp32(const float* query, float* query_tile, int i, int embed_dim)
+{
+    const float* qptr0 = query + (i + 0) * embed_dim;
+    const float* qptr1 = query + (i + 1) * embed_dim;
+    const float* qptr2 = query + (i + 2) * embed_dim;
+    const float* qptr3 = query + (i + 3) * embed_dim;
+    const float* qptr4 = query + (i + 4) * embed_dim;
+    const float* qptr5 = query + (i + 5) * embed_dim;
+    const float* qptr6 = query + (i + 6) * embed_dim;
+    const float* qptr7 = query + (i + 7) * embed_dim;
+
+    int k = 0;
+    for (; k + 7 < embed_dim; k += 8)
+    {
+        __m256 _r0 = _mm256_loadu_ps(qptr0 + k);
+        __m256 _r1 = _mm256_loadu_ps(qptr1 + k);
+        __m256 _r2 = _mm256_loadu_ps(qptr2 + k);
+        __m256 _r3 = _mm256_loadu_ps(qptr3 + k);
+        __m256 _r4 = _mm256_loadu_ps(qptr4 + k);
+        __m256 _r5 = _mm256_loadu_ps(qptr5 + k);
+        __m256 _r6 = _mm256_loadu_ps(qptr6 + k);
+        __m256 _r7 = _mm256_loadu_ps(qptr7 + k);
+
+        transpose8x8_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7);
+
+        float* outptr = query_tile + k * 8;
+        _mm256_storeu_ps(outptr, _r0);
+        _mm256_storeu_ps(outptr + 8, _r1);
+        _mm256_storeu_ps(outptr + 16, _r2);
+        _mm256_storeu_ps(outptr + 24, _r3);
+        _mm256_storeu_ps(outptr + 32, _r4);
+        _mm256_storeu_ps(outptr + 40, _r5);
+        _mm256_storeu_ps(outptr + 48, _r6);
+        _mm256_storeu_ps(outptr + 56, _r7);
+    }
+
+    for (; k < embed_dim; k++)
+    {
+        float* outptr = query_tile + k * 8;
+        outptr[0] = qptr0[k];
+        outptr[1] = qptr1[k];
+        outptr[2] = qptr2[k];
+        outptr[3] = qptr3[k];
+        outptr[4] = qptr4[k];
+        outptr[5] = qptr5[k];
+        outptr[6] = qptr6[k];
+        outptr[7] = qptr7[k];
+    }
+}
+
+static void sdpa_pack_query_tile4_fp32(const float* query, float* query_tile, int i, int embed_dim)
+{
+    const float* qptr0 = query + (i + 0) * embed_dim;
+    const float* qptr1 = query + (i + 1) * embed_dim;
+    const float* qptr2 = query + (i + 2) * embed_dim;
+    const float* qptr3 = query + (i + 3) * embed_dim;
+
+    int k = 0;
+    for (; k + 3 < embed_dim; k += 4)
+    {
+        __m128 _r0 = _mm_loadu_ps(qptr0 + k);
+        __m128 _r1 = _mm_loadu_ps(qptr1 + k);
+        __m128 _r2 = _mm_loadu_ps(qptr2 + k);
+        __m128 _r3 = _mm_loadu_ps(qptr3 + k);
+
+        _MM_TRANSPOSE4_PS(_r0, _r1, _r2, _r3);
+
+        float* outptr = query_tile + k * 4;
+        _mm_storeu_ps(outptr, _r0);
+        _mm_storeu_ps(outptr + 4, _r1);
+        _mm_storeu_ps(outptr + 8, _r2);
+        _mm_storeu_ps(outptr + 12, _r3);
+    }
+
+    for (; k < embed_dim; k++)
+    {
+        float* outptr = query_tile + k * 4;
+        outptr[0] = qptr0[k];
+        outptr[1] = qptr1[k];
+        outptr[2] = qptr2[k];
+        outptr[3] = qptr3[k];
+    }
+}
+
+static void sdpa_qk_tile_packedT8_fp32(const float* query_tile, const float* packed_key, float* score, int n_start, int max_jj, int embed_dim, int tile_n, float scale)
+{
+    const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(tile_n, embed_dim);
+    const int n_tile = n_start / tile_n;
+    const float* packed_key_tile = packed_key + n_tile * packed_key_tile_stride;
+    const __m512 _scale16 = _mm512_set1_ps(scale);
+    const __m256 _scale = _mm256_set1_ps(scale);
+
+    const float* pK = packed_key_tile;
+    int j = 0;
+    for (; j + 15 < max_jj; j += 16)
+    {
+        __m512 _sum0 = _mm512_setzero_ps();
+        __m512 _sum1 = _mm512_setzero_ps();
+        __m512 _sum2 = _mm512_setzero_ps();
+        __m512 _sum3 = _mm512_setzero_ps();
+        __m512 _sum4 = _mm512_setzero_ps();
+        __m512 _sum5 = _mm512_setzero_ps();
+        __m512 _sum6 = _mm512_setzero_ps();
+        __m512 _sum7 = _mm512_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m512 _k = _mm512_loadu_ps(pK);
+
+            _sum0 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[0]), _sum0);
+            _sum1 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[1]), _sum1);
+            _sum2 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[2]), _sum2);
+            _sum3 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[3]), _sum3);
+            _sum4 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[4]), _sum4);
+            _sum5 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[5]), _sum5);
+            _sum6 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[6]), _sum6);
+            _sum7 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[7]), _sum7);
+
+            pQ += 8;
+            pK += 16;
+        }
+
+        _sum0 = _mm512_mul_ps(_sum0, _scale16);
+        _sum1 = _mm512_mul_ps(_sum1, _scale16);
+        _sum2 = _mm512_mul_ps(_sum2, _scale16);
+        _sum3 = _mm512_mul_ps(_sum3, _scale16);
+        _sum4 = _mm512_mul_ps(_sum4, _scale16);
+        _sum5 = _mm512_mul_ps(_sum5, _scale16);
+        _sum6 = _mm512_mul_ps(_sum6, _scale16);
+        _sum7 = _mm512_mul_ps(_sum7, _scale16);
+
+        transpose16x8_ps(_sum0, _sum1, _sum2, _sum3, _sum4, _sum5, _sum6, _sum7);
+
+        float* outptr = score + j * 8;
+        _mm256_storeu_ps(outptr, _mm512_extractf32x8_ps(_sum0, 0));
+        _mm256_storeu_ps(outptr + 8, _mm512_extractf32x8_ps(_sum0, 1));
+        _mm256_storeu_ps(outptr + 8 * 2, _mm512_extractf32x8_ps(_sum1, 0));
+        _mm256_storeu_ps(outptr + 8 * 3, _mm512_extractf32x8_ps(_sum1, 1));
+        _mm256_storeu_ps(outptr + 8 * 4, _mm512_extractf32x8_ps(_sum2, 0));
+        _mm256_storeu_ps(outptr + 8 * 5, _mm512_extractf32x8_ps(_sum2, 1));
+        _mm256_storeu_ps(outptr + 8 * 6, _mm512_extractf32x8_ps(_sum3, 0));
+        _mm256_storeu_ps(outptr + 8 * 7, _mm512_extractf32x8_ps(_sum3, 1));
+        _mm256_storeu_ps(outptr + 8 * 8, _mm512_extractf32x8_ps(_sum4, 0));
+        _mm256_storeu_ps(outptr + 8 * 9, _mm512_extractf32x8_ps(_sum4, 1));
+        _mm256_storeu_ps(outptr + 8 * 10, _mm512_extractf32x8_ps(_sum5, 0));
+        _mm256_storeu_ps(outptr + 8 * 11, _mm512_extractf32x8_ps(_sum5, 1));
+        _mm256_storeu_ps(outptr + 8 * 12, _mm512_extractf32x8_ps(_sum6, 0));
+        _mm256_storeu_ps(outptr + 8 * 13, _mm512_extractf32x8_ps(_sum6, 1));
+        _mm256_storeu_ps(outptr + 8 * 14, _mm512_extractf32x8_ps(_sum7, 0));
+        _mm256_storeu_ps(outptr + 8 * 15, _mm512_extractf32x8_ps(_sum7, 1));
+    }
+
+    for (; j + 7 < max_jj; j += 8)
+    {
+        __m256 _sum0 = _mm256_setzero_ps();
+        __m256 _sum1 = _mm256_setzero_ps();
+        __m256 _sum2 = _mm256_setzero_ps();
+        __m256 _sum3 = _mm256_setzero_ps();
+        __m256 _sum4 = _mm256_setzero_ps();
+        __m256 _sum5 = _mm256_setzero_ps();
+        __m256 _sum6 = _mm256_setzero_ps();
+        __m256 _sum7 = _mm256_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m256 _k = _mm256_loadu_ps(pK);
+
+            _sum0 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[0]), _sum0);
+            _sum1 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[1]), _sum1);
+            _sum2 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[2]), _sum2);
+            _sum3 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[3]), _sum3);
+            _sum4 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[4]), _sum4);
+            _sum5 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[5]), _sum5);
+            _sum6 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[6]), _sum6);
+            _sum7 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[7]), _sum7);
+
+            pQ += 8;
+            pK += 8;
+        }
+
+        _sum0 = _mm256_mul_ps(_sum0, _scale);
+        _sum1 = _mm256_mul_ps(_sum1, _scale);
+        _sum2 = _mm256_mul_ps(_sum2, _scale);
+        _sum3 = _mm256_mul_ps(_sum3, _scale);
+        _sum4 = _mm256_mul_ps(_sum4, _scale);
+        _sum5 = _mm256_mul_ps(_sum5, _scale);
+        _sum6 = _mm256_mul_ps(_sum6, _scale);
+        _sum7 = _mm256_mul_ps(_sum7, _scale);
+
+        transpose8x8_ps(_sum0, _sum1, _sum2, _sum3, _sum4, _sum5, _sum6, _sum7);
+
+        float* outptr = score + j * 8;
+        _mm256_storeu_ps(outptr, _sum0);
+        _mm256_storeu_ps(outptr + 8, _sum1);
+        _mm256_storeu_ps(outptr + 8 * 2, _sum2);
+        _mm256_storeu_ps(outptr + 8 * 3, _sum3);
+        _mm256_storeu_ps(outptr + 8 * 4, _sum4);
+        _mm256_storeu_ps(outptr + 8 * 5, _sum5);
+        _mm256_storeu_ps(outptr + 8 * 6, _sum6);
+        _mm256_storeu_ps(outptr + 8 * 7, _sum7);
+    }
+
+    for (; j + 3 < max_jj; j += 4)
+    {
+        __m256 _sum0 = _mm256_setzero_ps();
+        __m256 _sum1 = _mm256_setzero_ps();
+        __m256 _sum2 = _mm256_setzero_ps();
+        __m256 _sum3 = _mm256_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m256 _q = _mm256_loadu_ps(pQ);
+
+            _sum0 = _mm256_comp_fmadd_ps(_q, _mm256_set1_ps(pK[0]), _sum0);
+            _sum1 = _mm256_comp_fmadd_ps(_q, _mm256_set1_ps(pK[1]), _sum1);
+            _sum2 = _mm256_comp_fmadd_ps(_q, _mm256_set1_ps(pK[2]), _sum2);
+            _sum3 = _mm256_comp_fmadd_ps(_q, _mm256_set1_ps(pK[3]), _sum3);
+
+            pQ += 8;
+            pK += 4;
+        }
+
+        float* outptr = score + j * 8;
+        _mm256_storeu_ps(outptr, _mm256_mul_ps(_sum0, _scale));
+        _mm256_storeu_ps(outptr + 8, _mm256_mul_ps(_sum1, _scale));
+        _mm256_storeu_ps(outptr + 8 * 2, _mm256_mul_ps(_sum2, _scale));
+        _mm256_storeu_ps(outptr + 8 * 3, _mm256_mul_ps(_sum3, _scale));
+    }
+
+    for (; j < max_jj; j++)
+    {
+        const float* pQ = query_tile;
+        __m256 _sum0 = _mm256_setzero_ps();
+
+        for (int k = 0; k < embed_dim; k++)
+        {
+            _sum0 = _mm256_comp_fmadd_ps(_mm256_loadu_ps(pQ), _mm256_set1_ps(pK[k]), _sum0);
+            pQ += 8;
+        }
+
+        pK += embed_dim;
+        _mm256_storeu_ps(score + j * 8, _mm256_mul_ps(_sum0, _scale));
+    }
+}
+
+static void sdpa_qk_tile_packedT4_fp32(const float* query_tile, const float* packed_key, float* score, int n_start, int max_jj, int embed_dim, int tile_n, float scale)
+{
+    const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(tile_n, embed_dim);
+    const int n_tile = n_start / tile_n;
+    const float* packed_key_tile = packed_key + n_tile * packed_key_tile_stride;
+    const __m512 _scale16 = _mm512_set1_ps(scale);
+    const __m256 _scale = _mm256_set1_ps(scale);
+    const __m128 _scale4 = _mm_set1_ps(scale);
+
+    const float* pK = packed_key_tile;
+    int j = 0;
+    for (; j + 15 < max_jj; j += 16)
+    {
+        __m512 _sum0 = _mm512_setzero_ps();
+        __m512 _sum1 = _mm512_setzero_ps();
+        __m512 _sum2 = _mm512_setzero_ps();
+        __m512 _sum3 = _mm512_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m512 _k = _mm512_loadu_ps(pK);
+
+            _sum0 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[0]), _sum0);
+            _sum1 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[1]), _sum1);
+            _sum2 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[2]), _sum2);
+            _sum3 = _mm512_fmadd_ps(_k, _mm512_set1_ps(pQ[3]), _sum3);
+
+            pQ += 4;
+            pK += 16;
+        }
+
+        _sum0 = _mm512_mul_ps(_sum0, _scale16);
+        _sum1 = _mm512_mul_ps(_sum1, _scale16);
+        _sum2 = _mm512_mul_ps(_sum2, _scale16);
+        _sum3 = _mm512_mul_ps(_sum3, _scale16);
+
+        transpose16x4_ps(_sum0, _sum1, _sum2, _sum3);
+
+        float* outptr = score + j * 4;
+        _mm512_storeu_ps(outptr, _sum0);
+        _mm512_storeu_ps(outptr + 16, _sum1);
+        _mm512_storeu_ps(outptr + 16 * 2, _sum2);
+        _mm512_storeu_ps(outptr + 16 * 3, _sum3);
+    }
+
+    for (; j + 7 < max_jj; j += 8)
+    {
+        __m256 _sum0 = _mm256_setzero_ps();
+        __m256 _sum1 = _mm256_setzero_ps();
+        __m256 _sum2 = _mm256_setzero_ps();
+        __m256 _sum3 = _mm256_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m256 _k = _mm256_loadu_ps(pK);
+
+            _sum0 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[0]), _sum0);
+            _sum1 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[1]), _sum1);
+            _sum2 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[2]), _sum2);
+            _sum3 = _mm256_comp_fmadd_ps(_k, _mm256_set1_ps(pQ[3]), _sum3);
+
+            pQ += 4;
+            pK += 8;
+        }
+
+        _sum0 = _mm256_mul_ps(_sum0, _scale);
+        _sum1 = _mm256_mul_ps(_sum1, _scale);
+        _sum2 = _mm256_mul_ps(_sum2, _scale);
+        _sum3 = _mm256_mul_ps(_sum3, _scale);
+
+        transpose8x4_ps(_sum0, _sum1, _sum2, _sum3);
+
+        float* outptr = score + j * 4;
+        _mm256_storeu_ps(outptr, _sum0);
+        _mm256_storeu_ps(outptr + 8, _sum1);
+        _mm256_storeu_ps(outptr + 8 * 2, _sum2);
+        _mm256_storeu_ps(outptr + 8 * 3, _sum3);
+    }
+
+    for (; j + 3 < max_jj; j += 4)
+    {
+        __m128 _sum0 = _mm_setzero_ps();
+        __m128 _sum1 = _mm_setzero_ps();
+        __m128 _sum2 = _mm_setzero_ps();
+        __m128 _sum3 = _mm_setzero_ps();
+
+        const float* pQ = query_tile;
+        for (int k = 0; k < embed_dim; k++)
+        {
+            __m128 _k = _mm_loadu_ps(pK);
+
+            _sum0 = _mm_comp_fmadd_ps(_k, _mm_set1_ps(pQ[0]), _sum0);
+            _sum1 = _mm_comp_fmadd_ps(_k, _mm_set1_ps(pQ[1]), _sum1);
+            _sum2 = _mm_comp_fmadd_ps(_k, _mm_set1_ps(pQ[2]), _sum2);
+            _sum3 = _mm_comp_fmadd_ps(_k, _mm_set1_ps(pQ[3]), _sum3);
+
+            pQ += 4;
+            pK += 4;
+        }
+
+        _sum0 = _mm_mul_ps(_sum0, _scale4);
+        _sum1 = _mm_mul_ps(_sum1, _scale4);
+        _sum2 = _mm_mul_ps(_sum2, _scale4);
+        _sum3 = _mm_mul_ps(_sum3, _scale4);
+
+        _MM_TRANSPOSE4_PS(_sum0, _sum1, _sum2, _sum3);
+
+        float* outptr = score + j * 4;
+        _mm_storeu_ps(outptr, _sum0);
+        _mm_storeu_ps(outptr + 4, _sum1);
+        _mm_storeu_ps(outptr + 4 * 2, _sum2);
+        _mm_storeu_ps(outptr + 4 * 3, _sum3);
+    }
+
+    for (; j < max_jj; j++)
+    {
+        const float* pQ = query_tile;
+        __m128 _sum0 = _mm_setzero_ps();
+
+        for (int k = 0; k < embed_dim; k++)
+        {
+            _sum0 = _mm_comp_fmadd_ps(_mm_loadu_ps(pQ), _mm_set1_ps(pK[k]), _sum0);
+            pQ += 4;
+        }
+
+        pK += embed_dim;
+        _mm_storeu_ps(score + j * 4, _mm_mul_ps(_sum0, _scale4));
+    }
+}
+
+static void sdpa_store_out_tile8_fp32(float* outptr, const float* out_tile, int out_embed_dim, __m256 _scale)
+{
+    float* outptr0 = outptr;
+    float* outptr1 = outptr0 + out_embed_dim;
+    float* outptr2 = outptr1 + out_embed_dim;
+    float* outptr3 = outptr2 + out_embed_dim;
+    float* outptr4 = outptr3 + out_embed_dim;
+    float* outptr5 = outptr4 + out_embed_dim;
+    float* outptr6 = outptr5 + out_embed_dim;
+    float* outptr7 = outptr6 + out_embed_dim;
+
+    const float* pp = out_tile;
+    int k = 0;
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m256 _r0 = _mm256_mul_ps(_mm256_loadu_ps(pp), _scale);
+        __m256 _r1 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8), _scale);
+        __m256 _r2 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8 * 2), _scale);
+        __m256 _r3 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8 * 3), _scale);
+        __m256 _r4 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8 * 4), _scale);
+        __m256 _r5 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8 * 5), _scale);
+        __m256 _r6 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8 * 6), _scale);
+        __m256 _r7 = _mm256_mul_ps(_mm256_loadu_ps(pp + 8 * 7), _scale);
+
+        transpose8x8_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7);
+
+        _mm256_storeu_ps(outptr0 + k, _r0);
+        _mm256_storeu_ps(outptr1 + k, _r1);
+        _mm256_storeu_ps(outptr2 + k, _r2);
+        _mm256_storeu_ps(outptr3 + k, _r3);
+        _mm256_storeu_ps(outptr4 + k, _r4);
+        _mm256_storeu_ps(outptr5 + k, _r5);
+        _mm256_storeu_ps(outptr6 + k, _r6);
+        _mm256_storeu_ps(outptr7 + k, _r7);
+
+        pp += 64;
+    }
+
+    float scale[8];
+    _mm256_storeu_ps(scale, _scale);
+    for (; k < out_embed_dim; k++)
+    {
+        outptr0[k] = pp[0] * scale[0];
+        outptr1[k] = pp[1] * scale[1];
+        outptr2[k] = pp[2] * scale[2];
+        outptr3[k] = pp[3] * scale[3];
+        outptr4[k] = pp[4] * scale[4];
+        outptr5[k] = pp[5] * scale[5];
+        outptr6[k] = pp[6] * scale[6];
+        outptr7[k] = pp[7] * scale[7];
+        pp += 8;
+    }
+}
+
+static void sdpa_store_out_tile4_fp32(float* outptr, const float* out_tile, int out_embed_dim, __m128 _scale)
+{
+    float* outptr0 = outptr;
+    float* outptr1 = outptr0 + out_embed_dim;
+    float* outptr2 = outptr1 + out_embed_dim;
+    float* outptr3 = outptr2 + out_embed_dim;
+
+    const float* pp = out_tile;
+    int k = 0;
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m128 _r0 = _mm_mul_ps(_mm_loadu_ps(pp), _scale);
+        __m128 _r1 = _mm_mul_ps(_mm_loadu_ps(pp + 4), _scale);
+        __m128 _r2 = _mm_mul_ps(_mm_loadu_ps(pp + 4 * 2), _scale);
+        __m128 _r3 = _mm_mul_ps(_mm_loadu_ps(pp + 4 * 3), _scale);
+
+        _MM_TRANSPOSE4_PS(_r0, _r1, _r2, _r3);
+
+        _mm_storeu_ps(outptr0 + k, _r0);
+        _mm_storeu_ps(outptr1 + k, _r1);
+        _mm_storeu_ps(outptr2 + k, _r2);
+        _mm_storeu_ps(outptr3 + k, _r3);
+
+        pp += 16;
+    }
+
+    float scale[4];
+    _mm_storeu_ps(scale, _scale);
+    for (; k < out_embed_dim; k++)
+    {
+        outptr0[k] = pp[0] * scale[0];
+        outptr1[k] = pp[1] * scale[1];
+        outptr2[k] = pp[2] * scale[2];
+        outptr3[k] = pp[3] * scale[3];
+        pp += 4;
+    }
+}
+
+static void sdpa_pv_tile_packedT16_fp32(float* out_tile, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
+{
+    const float* vptr = packed_value_tile;
+    float* outptr_tile = out_tile;
+
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m512 _out0 = _mm512_loadu_ps(outptr_tile);
+        __m512 _out1 = _mm512_loadu_ps(outptr_tile + 16);
+        __m512 _out2 = _mm512_loadu_ps(outptr_tile + 16 * 2);
+        __m512 _out3 = _mm512_loadu_ps(outptr_tile + 16 * 3);
+        __m512 _out4 = _mm512_loadu_ps(outptr_tile + 16 * 4);
+        __m512 _out5 = _mm512_loadu_ps(outptr_tile + 16 * 5);
+        __m512 _out6 = _mm512_loadu_ps(outptr_tile + 16 * 6);
+        __m512 _out7 = _mm512_loadu_ps(outptr_tile + 16 * 7);
+        __m512 _out8 = _mm512_loadu_ps(outptr_tile + 16 * 8);
+        __m512 _out9 = _mm512_loadu_ps(outptr_tile + 16 * 9);
+        __m512 _outa = _mm512_loadu_ps(outptr_tile + 16 * 10);
+        __m512 _outb = _mm512_loadu_ps(outptr_tile + 16 * 11);
+        __m512 _outc = _mm512_loadu_ps(outptr_tile + 16 * 12);
+        __m512 _outd = _mm512_loadu_ps(outptr_tile + 16 * 13);
+        __m512 _oute = _mm512_loadu_ps(outptr_tile + 16 * 14);
+        __m512 _outf = _mm512_loadu_ps(outptr_tile + 16 * 15);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m512 _p = _mm512_loadu_ps(sptr);
+            _out0 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[7]), _out7);
+            _out8 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[8]), _out8);
+            _out9 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[9]), _out9);
+            _outa = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[10]), _outa);
+            _outb = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[11]), _outb);
+            _outc = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[12]), _outc);
+            _outd = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[13]), _outd);
+            _oute = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[14]), _oute);
+            _outf = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[15]), _outf);
+            sptr += 16;
+            vptr0 += 16;
+        }
+
+        _mm512_storeu_ps(outptr_tile, _out0);
+        _mm512_storeu_ps(outptr_tile + 16, _out1);
+        _mm512_storeu_ps(outptr_tile + 16 * 2, _out2);
+        _mm512_storeu_ps(outptr_tile + 16 * 3, _out3);
+        _mm512_storeu_ps(outptr_tile + 16 * 4, _out4);
+        _mm512_storeu_ps(outptr_tile + 16 * 5, _out5);
+        _mm512_storeu_ps(outptr_tile + 16 * 6, _out6);
+        _mm512_storeu_ps(outptr_tile + 16 * 7, _out7);
+        _mm512_storeu_ps(outptr_tile + 16 * 8, _out8);
+        _mm512_storeu_ps(outptr_tile + 16 * 9, _out9);
+        _mm512_storeu_ps(outptr_tile + 16 * 10, _outa);
+        _mm512_storeu_ps(outptr_tile + 16 * 11, _outb);
+        _mm512_storeu_ps(outptr_tile + 16 * 12, _outc);
+        _mm512_storeu_ps(outptr_tile + 16 * 13, _outd);
+        _mm512_storeu_ps(outptr_tile + 16 * 14, _oute);
+        _mm512_storeu_ps(outptr_tile + 16 * 15, _outf);
+
+        vptr += (size_t)max_jj * 16;
+        outptr_tile += 256;
+    }
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m512 _out0 = _mm512_loadu_ps(outptr_tile);
+        __m512 _out1 = _mm512_loadu_ps(outptr_tile + 16);
+        __m512 _out2 = _mm512_loadu_ps(outptr_tile + 16 * 2);
+        __m512 _out3 = _mm512_loadu_ps(outptr_tile + 16 * 3);
+        __m512 _out4 = _mm512_loadu_ps(outptr_tile + 16 * 4);
+        __m512 _out5 = _mm512_loadu_ps(outptr_tile + 16 * 5);
+        __m512 _out6 = _mm512_loadu_ps(outptr_tile + 16 * 6);
+        __m512 _out7 = _mm512_loadu_ps(outptr_tile + 16 * 7);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m512 _p = _mm512_loadu_ps(sptr);
+            _out0 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[7]), _out7);
+            sptr += 16;
+            vptr0 += 8;
+        }
+
+        _mm512_storeu_ps(outptr_tile, _out0);
+        _mm512_storeu_ps(outptr_tile + 16, _out1);
+        _mm512_storeu_ps(outptr_tile + 16 * 2, _out2);
+        _mm512_storeu_ps(outptr_tile + 16 * 3, _out3);
+        _mm512_storeu_ps(outptr_tile + 16 * 4, _out4);
+        _mm512_storeu_ps(outptr_tile + 16 * 5, _out5);
+        _mm512_storeu_ps(outptr_tile + 16 * 6, _out6);
+        _mm512_storeu_ps(outptr_tile + 16 * 7, _out7);
+
+        vptr += (size_t)max_jj * 8;
+        outptr_tile += 128;
+    }
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m512 _out0 = _mm512_loadu_ps(outptr_tile);
+        __m512 _out1 = _mm512_loadu_ps(outptr_tile + 16);
+        __m512 _out2 = _mm512_loadu_ps(outptr_tile + 16 * 2);
+        __m512 _out3 = _mm512_loadu_ps(outptr_tile + 16 * 3);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m512 _p = _mm512_loadu_ps(sptr);
+            _out0 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[3]), _out3);
+            sptr += 16;
+            vptr0 += 4;
+        }
+
+        _mm512_storeu_ps(outptr_tile, _out0);
+        _mm512_storeu_ps(outptr_tile + 16, _out1);
+        _mm512_storeu_ps(outptr_tile + 16 * 2, _out2);
+        _mm512_storeu_ps(outptr_tile + 16 * 3, _out3);
+
+        vptr += (size_t)max_jj * 4;
+        outptr_tile += 64;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        __m512 _out = _mm512_loadu_ps(outptr_tile);
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm512_fmadd_ps(_mm512_loadu_ps(sptr), _mm512_set1_ps(*vptr0), _out);
+            sptr += 16;
+            vptr0++;
+        }
+
+        _mm512_storeu_ps(outptr_tile, _out);
+        vptr += max_jj;
+        outptr_tile += 16;
+    }
+}
+
+static void sdpa_pv_tile_packedT8_fp32(float* out_tile, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
+{
+    const float* vptr = packed_value_tile;
+    float* outptr_tile = out_tile;
+
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m256 _out0 = _mm256_loadu_ps(outptr_tile);
+        __m256 _out1 = _mm256_loadu_ps(outptr_tile + 8);
+        __m256 _out2 = _mm256_loadu_ps(outptr_tile + 8 * 2);
+        __m256 _out3 = _mm256_loadu_ps(outptr_tile + 8 * 3);
+        __m256 _out4 = _mm256_loadu_ps(outptr_tile + 8 * 4);
+        __m256 _out5 = _mm256_loadu_ps(outptr_tile + 8 * 5);
+        __m256 _out6 = _mm256_loadu_ps(outptr_tile + 8 * 6);
+        __m256 _out7 = _mm256_loadu_ps(outptr_tile + 8 * 7);
+        __m256 _out8 = _mm256_loadu_ps(outptr_tile + 8 * 8);
+        __m256 _out9 = _mm256_loadu_ps(outptr_tile + 8 * 9);
+        __m256 _outa = _mm256_loadu_ps(outptr_tile + 8 * 10);
+        __m256 _outb = _mm256_loadu_ps(outptr_tile + 8 * 11);
+        __m256 _outc = _mm256_loadu_ps(outptr_tile + 8 * 12);
+        __m256 _outd = _mm256_loadu_ps(outptr_tile + 8 * 13);
+        __m256 _oute = _mm256_loadu_ps(outptr_tile + 8 * 14);
+        __m256 _outf = _mm256_loadu_ps(outptr_tile + 8 * 15);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m256 _p = _mm256_loadu_ps(sptr);
+            _out0 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[7]), _out7);
+            _out8 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[8]), _out8);
+            _out9 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[9]), _out9);
+            _outa = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[10]), _outa);
+            _outb = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[11]), _outb);
+            _outc = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[12]), _outc);
+            _outd = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[13]), _outd);
+            _oute = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[14]), _oute);
+            _outf = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[15]), _outf);
+            sptr += 8;
+            vptr0 += 16;
+        }
+
+        _mm256_storeu_ps(outptr_tile, _out0);
+        _mm256_storeu_ps(outptr_tile + 8, _out1);
+        _mm256_storeu_ps(outptr_tile + 8 * 2, _out2);
+        _mm256_storeu_ps(outptr_tile + 8 * 3, _out3);
+        _mm256_storeu_ps(outptr_tile + 8 * 4, _out4);
+        _mm256_storeu_ps(outptr_tile + 8 * 5, _out5);
+        _mm256_storeu_ps(outptr_tile + 8 * 6, _out6);
+        _mm256_storeu_ps(outptr_tile + 8 * 7, _out7);
+        _mm256_storeu_ps(outptr_tile + 8 * 8, _out8);
+        _mm256_storeu_ps(outptr_tile + 8 * 9, _out9);
+        _mm256_storeu_ps(outptr_tile + 8 * 10, _outa);
+        _mm256_storeu_ps(outptr_tile + 8 * 11, _outb);
+        _mm256_storeu_ps(outptr_tile + 8 * 12, _outc);
+        _mm256_storeu_ps(outptr_tile + 8 * 13, _outd);
+        _mm256_storeu_ps(outptr_tile + 8 * 14, _oute);
+        _mm256_storeu_ps(outptr_tile + 8 * 15, _outf);
+
+        vptr += (size_t)max_jj * 16;
+        outptr_tile += 128;
+    }
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m256 _out0 = _mm256_loadu_ps(outptr_tile);
+        __m256 _out1 = _mm256_loadu_ps(outptr_tile + 8);
+        __m256 _out2 = _mm256_loadu_ps(outptr_tile + 8 * 2);
+        __m256 _out3 = _mm256_loadu_ps(outptr_tile + 8 * 3);
+        __m256 _out4 = _mm256_loadu_ps(outptr_tile + 8 * 4);
+        __m256 _out5 = _mm256_loadu_ps(outptr_tile + 8 * 5);
+        __m256 _out6 = _mm256_loadu_ps(outptr_tile + 8 * 6);
+        __m256 _out7 = _mm256_loadu_ps(outptr_tile + 8 * 7);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m256 _p = _mm256_loadu_ps(sptr);
+            _out0 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[7]), _out7);
+            sptr += 8;
+            vptr0 += 8;
+        }
+
+        _mm256_storeu_ps(outptr_tile, _out0);
+        _mm256_storeu_ps(outptr_tile + 8, _out1);
+        _mm256_storeu_ps(outptr_tile + 8 * 2, _out2);
+        _mm256_storeu_ps(outptr_tile + 8 * 3, _out3);
+        _mm256_storeu_ps(outptr_tile + 8 * 4, _out4);
+        _mm256_storeu_ps(outptr_tile + 8 * 5, _out5);
+        _mm256_storeu_ps(outptr_tile + 8 * 6, _out6);
+        _mm256_storeu_ps(outptr_tile + 8 * 7, _out7);
+
+        vptr += (size_t)max_jj * 8;
+        outptr_tile += 64;
+    }
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m256 _out0 = _mm256_loadu_ps(outptr_tile);
+        __m256 _out1 = _mm256_loadu_ps(outptr_tile + 8);
+        __m256 _out2 = _mm256_loadu_ps(outptr_tile + 8 * 2);
+        __m256 _out3 = _mm256_loadu_ps(outptr_tile + 8 * 3);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m256 _p = _mm256_loadu_ps(sptr);
+            _out0 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[3]), _out3);
+            sptr += 8;
+            vptr0 += 4;
+        }
+
+        _mm256_storeu_ps(outptr_tile, _out0);
+        _mm256_storeu_ps(outptr_tile + 8, _out1);
+        _mm256_storeu_ps(outptr_tile + 8 * 2, _out2);
+        _mm256_storeu_ps(outptr_tile + 8 * 3, _out3);
+
+        vptr += (size_t)max_jj * 4;
+        outptr_tile += 32;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        __m256 _out = _mm256_loadu_ps(outptr_tile);
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm256_comp_fmadd_ps(_mm256_loadu_ps(sptr), _mm256_set1_ps(*vptr0), _out);
+            sptr += 8;
+            vptr0++;
+        }
+
+        _mm256_storeu_ps(outptr_tile, _out);
+        vptr += max_jj;
+        outptr_tile += 8;
+    }
+}
+
+static void sdpa_pv_tile_packedT4_fp32(float* out_tile, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
+{
+    const float* vptr = packed_value_tile;
+    float* outptr_tile = out_tile;
+
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m128 _out0 = _mm_loadu_ps(outptr_tile);
+        __m128 _out1 = _mm_loadu_ps(outptr_tile + 4);
+        __m128 _out2 = _mm_loadu_ps(outptr_tile + 4 * 2);
+        __m128 _out3 = _mm_loadu_ps(outptr_tile + 4 * 3);
+        __m128 _out4 = _mm_loadu_ps(outptr_tile + 4 * 4);
+        __m128 _out5 = _mm_loadu_ps(outptr_tile + 4 * 5);
+        __m128 _out6 = _mm_loadu_ps(outptr_tile + 4 * 6);
+        __m128 _out7 = _mm_loadu_ps(outptr_tile + 4 * 7);
+        __m128 _out8 = _mm_loadu_ps(outptr_tile + 4 * 8);
+        __m128 _out9 = _mm_loadu_ps(outptr_tile + 4 * 9);
+        __m128 _outa = _mm_loadu_ps(outptr_tile + 4 * 10);
+        __m128 _outb = _mm_loadu_ps(outptr_tile + 4 * 11);
+        __m128 _outc = _mm_loadu_ps(outptr_tile + 4 * 12);
+        __m128 _outd = _mm_loadu_ps(outptr_tile + 4 * 13);
+        __m128 _oute = _mm_loadu_ps(outptr_tile + 4 * 14);
+        __m128 _outf = _mm_loadu_ps(outptr_tile + 4 * 15);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m128 _p = _mm_loadu_ps(sptr);
+            _out0 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[7]), _out7);
+            _out8 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[8]), _out8);
+            _out9 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[9]), _out9);
+            _outa = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[10]), _outa);
+            _outb = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[11]), _outb);
+            _outc = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[12]), _outc);
+            _outd = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[13]), _outd);
+            _oute = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[14]), _oute);
+            _outf = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[15]), _outf);
+            sptr += 4;
+            vptr0 += 16;
+        }
+
+        _mm_storeu_ps(outptr_tile, _out0);
+        _mm_storeu_ps(outptr_tile + 4, _out1);
+        _mm_storeu_ps(outptr_tile + 4 * 2, _out2);
+        _mm_storeu_ps(outptr_tile + 4 * 3, _out3);
+        _mm_storeu_ps(outptr_tile + 4 * 4, _out4);
+        _mm_storeu_ps(outptr_tile + 4 * 5, _out5);
+        _mm_storeu_ps(outptr_tile + 4 * 6, _out6);
+        _mm_storeu_ps(outptr_tile + 4 * 7, _out7);
+        _mm_storeu_ps(outptr_tile + 4 * 8, _out8);
+        _mm_storeu_ps(outptr_tile + 4 * 9, _out9);
+        _mm_storeu_ps(outptr_tile + 4 * 10, _outa);
+        _mm_storeu_ps(outptr_tile + 4 * 11, _outb);
+        _mm_storeu_ps(outptr_tile + 4 * 12, _outc);
+        _mm_storeu_ps(outptr_tile + 4 * 13, _outd);
+        _mm_storeu_ps(outptr_tile + 4 * 14, _oute);
+        _mm_storeu_ps(outptr_tile + 4 * 15, _outf);
+
+        vptr += (size_t)max_jj * 16;
+        outptr_tile += 64;
+    }
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m128 _out0 = _mm_loadu_ps(outptr_tile);
+        __m128 _out1 = _mm_loadu_ps(outptr_tile + 4);
+        __m128 _out2 = _mm_loadu_ps(outptr_tile + 4 * 2);
+        __m128 _out3 = _mm_loadu_ps(outptr_tile + 4 * 3);
+        __m128 _out4 = _mm_loadu_ps(outptr_tile + 4 * 4);
+        __m128 _out5 = _mm_loadu_ps(outptr_tile + 4 * 5);
+        __m128 _out6 = _mm_loadu_ps(outptr_tile + 4 * 6);
+        __m128 _out7 = _mm_loadu_ps(outptr_tile + 4 * 7);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m128 _p = _mm_loadu_ps(sptr);
+            _out0 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[7]), _out7);
+            sptr += 4;
+            vptr0 += 8;
+        }
+
+        _mm_storeu_ps(outptr_tile, _out0);
+        _mm_storeu_ps(outptr_tile + 4, _out1);
+        _mm_storeu_ps(outptr_tile + 4 * 2, _out2);
+        _mm_storeu_ps(outptr_tile + 4 * 3, _out3);
+        _mm_storeu_ps(outptr_tile + 4 * 4, _out4);
+        _mm_storeu_ps(outptr_tile + 4 * 5, _out5);
+        _mm_storeu_ps(outptr_tile + 4 * 6, _out6);
+        _mm_storeu_ps(outptr_tile + 4 * 7, _out7);
+
+        vptr += (size_t)max_jj * 8;
+        outptr_tile += 32;
+    }
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m128 _out0 = _mm_loadu_ps(outptr_tile);
+        __m128 _out1 = _mm_loadu_ps(outptr_tile + 4);
+        __m128 _out2 = _mm_loadu_ps(outptr_tile + 4 * 2);
+        __m128 _out3 = _mm_loadu_ps(outptr_tile + 4 * 3);
+
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m128 _p = _mm_loadu_ps(sptr);
+            _out0 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[3]), _out3);
+            sptr += 4;
+            vptr0 += 4;
+        }
+
+        _mm_storeu_ps(outptr_tile, _out0);
+        _mm_storeu_ps(outptr_tile + 4, _out1);
+        _mm_storeu_ps(outptr_tile + 4 * 2, _out2);
+        _mm_storeu_ps(outptr_tile + 4 * 3, _out3);
+
+        vptr += (size_t)max_jj * 4;
+        outptr_tile += 16;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        __m128 _out = _mm_loadu_ps(outptr_tile);
+        const float* sptr = score;
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm_comp_fmadd_ps(_mm_loadu_ps(sptr), _mm_set1_ps(*vptr0), _out);
+            sptr += 4;
+            vptr0++;
+        }
+
+        _mm_storeu_ps(outptr_tile, _out);
+        vptr += max_jj;
+        outptr_tile += 4;
+    }
+}
+
+static void sdpa_pv_tile_packedT1_fp32(float* outptr, const float* packed_value_tile, const float* score, int max_jj, int out_embed_dim)
+{
+    const float* vptr = packed_value_tile;
+
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m512 _out = _mm512_loadu_ps(outptr + k);
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm512_fmadd_ps(_mm512_set1_ps(score[j]), _mm512_loadu_ps(vptr0), _out);
+            vptr0 += 16;
+        }
+        _mm512_storeu_ps(outptr + k, _out);
+        vptr += (size_t)max_jj * 16;
+    }
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m256 _out = _mm256_loadu_ps(outptr + k);
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm256_comp_fmadd_ps(_mm256_set1_ps(score[j]), _mm256_loadu_ps(vptr0), _out);
+            vptr0 += 8;
+        }
+        _mm256_storeu_ps(outptr + k, _out);
+        vptr += (size_t)max_jj * 8;
+    }
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m128 _out = _mm_loadu_ps(outptr + k);
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm_comp_fmadd_ps(_mm_set1_ps(score[j]), _mm_loadu_ps(vptr0), _out);
+            vptr0 += 4;
+        }
+        _mm_storeu_ps(outptr + k, _out);
+        vptr += (size_t)max_jj * 4;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        float out = outptr[k];
+        const float* vptr0 = vptr;
+        for (int j = 0; j < max_jj; j++)
+        {
+            out += score[j] * *vptr0++;
+        }
+        outptr[k] = out;
+        vptr += max_jj;
+    }
+}
+
+static void sdpa_pv_tile_unpackedT16_fp32(float* out_tile, const float* value, const float* score, int max_jj, int out_embed_dim)
+{
+    float* outptr_tile = out_tile;
+
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m512 _out0 = _mm512_loadu_ps(outptr_tile);
+        __m512 _out1 = _mm512_loadu_ps(outptr_tile + 16);
+        __m512 _out2 = _mm512_loadu_ps(outptr_tile + 16 * 2);
+        __m512 _out3 = _mm512_loadu_ps(outptr_tile + 16 * 3);
+        __m512 _out4 = _mm512_loadu_ps(outptr_tile + 16 * 4);
+        __m512 _out5 = _mm512_loadu_ps(outptr_tile + 16 * 5);
+        __m512 _out6 = _mm512_loadu_ps(outptr_tile + 16 * 6);
+        __m512 _out7 = _mm512_loadu_ps(outptr_tile + 16 * 7);
+        __m512 _out8 = _mm512_loadu_ps(outptr_tile + 16 * 8);
+        __m512 _out9 = _mm512_loadu_ps(outptr_tile + 16 * 9);
+        __m512 _outa = _mm512_loadu_ps(outptr_tile + 16 * 10);
+        __m512 _outb = _mm512_loadu_ps(outptr_tile + 16 * 11);
+        __m512 _outc = _mm512_loadu_ps(outptr_tile + 16 * 12);
+        __m512 _outd = _mm512_loadu_ps(outptr_tile + 16 * 13);
+        __m512 _oute = _mm512_loadu_ps(outptr_tile + 16 * 14);
+        __m512 _outf = _mm512_loadu_ps(outptr_tile + 16 * 15);
+
+        const float* sptr = score;
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m512 _p = _mm512_loadu_ps(sptr);
+            _out0 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[7]), _out7);
+            _out8 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[8]), _out8);
+            _out9 = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[9]), _out9);
+            _outa = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[10]), _outa);
+            _outb = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[11]), _outb);
+            _outc = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[12]), _outc);
+            _outd = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[13]), _outd);
+            _oute = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[14]), _oute);
+            _outf = _mm512_fmadd_ps(_p, _mm512_set1_ps(vptr0[15]), _outf);
+            sptr += 16;
+            vptr0 += out_embed_dim;
+        }
+
+        _mm512_storeu_ps(outptr_tile, _out0);
+        _mm512_storeu_ps(outptr_tile + 16, _out1);
+        _mm512_storeu_ps(outptr_tile + 16 * 2, _out2);
+        _mm512_storeu_ps(outptr_tile + 16 * 3, _out3);
+        _mm512_storeu_ps(outptr_tile + 16 * 4, _out4);
+        _mm512_storeu_ps(outptr_tile + 16 * 5, _out5);
+        _mm512_storeu_ps(outptr_tile + 16 * 6, _out6);
+        _mm512_storeu_ps(outptr_tile + 16 * 7, _out7);
+        _mm512_storeu_ps(outptr_tile + 16 * 8, _out8);
+        _mm512_storeu_ps(outptr_tile + 16 * 9, _out9);
+        _mm512_storeu_ps(outptr_tile + 16 * 10, _outa);
+        _mm512_storeu_ps(outptr_tile + 16 * 11, _outb);
+        _mm512_storeu_ps(outptr_tile + 16 * 12, _outc);
+        _mm512_storeu_ps(outptr_tile + 16 * 13, _outd);
+        _mm512_storeu_ps(outptr_tile + 16 * 14, _oute);
+        _mm512_storeu_ps(outptr_tile + 16 * 15, _outf);
+        outptr_tile += 256;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        __m512 _out = _mm512_loadu_ps(outptr_tile);
+        const float* sptr = score;
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm512_fmadd_ps(_mm512_loadu_ps(sptr), _mm512_set1_ps(*vptr0), _out);
+            sptr += 16;
+            vptr0 += out_embed_dim;
+        }
+        _mm512_storeu_ps(outptr_tile, _out);
+        outptr_tile += 16;
+    }
+}
+
+static void sdpa_pv_tile_unpackedT8_fp32(float* out_tile, const float* value, const float* score, int max_jj, int out_embed_dim)
+{
+    float* outptr_tile = out_tile;
+
+    int k = 0;
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m256 _out0 = _mm256_loadu_ps(outptr_tile);
+        __m256 _out1 = _mm256_loadu_ps(outptr_tile + 8);
+        __m256 _out2 = _mm256_loadu_ps(outptr_tile + 8 * 2);
+        __m256 _out3 = _mm256_loadu_ps(outptr_tile + 8 * 3);
+        __m256 _out4 = _mm256_loadu_ps(outptr_tile + 8 * 4);
+        __m256 _out5 = _mm256_loadu_ps(outptr_tile + 8 * 5);
+        __m256 _out6 = _mm256_loadu_ps(outptr_tile + 8 * 6);
+        __m256 _out7 = _mm256_loadu_ps(outptr_tile + 8 * 7);
+
+        const float* sptr = score;
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m256 _p = _mm256_loadu_ps(sptr);
+            _out0 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[3]), _out3);
+            _out4 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[4]), _out4);
+            _out5 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[5]), _out5);
+            _out6 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[6]), _out6);
+            _out7 = _mm256_comp_fmadd_ps(_p, _mm256_set1_ps(vptr0[7]), _out7);
+            sptr += 8;
+            vptr0 += out_embed_dim;
+        }
+
+        _mm256_storeu_ps(outptr_tile, _out0);
+        _mm256_storeu_ps(outptr_tile + 8, _out1);
+        _mm256_storeu_ps(outptr_tile + 8 * 2, _out2);
+        _mm256_storeu_ps(outptr_tile + 8 * 3, _out3);
+        _mm256_storeu_ps(outptr_tile + 8 * 4, _out4);
+        _mm256_storeu_ps(outptr_tile + 8 * 5, _out5);
+        _mm256_storeu_ps(outptr_tile + 8 * 6, _out6);
+        _mm256_storeu_ps(outptr_tile + 8 * 7, _out7);
+        outptr_tile += 64;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        __m256 _out = _mm256_loadu_ps(outptr_tile);
+        const float* sptr = score;
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm256_comp_fmadd_ps(_mm256_loadu_ps(sptr), _mm256_set1_ps(*vptr0), _out);
+            sptr += 8;
+            vptr0 += out_embed_dim;
+        }
+        _mm256_storeu_ps(outptr_tile, _out);
+        outptr_tile += 8;
+    }
+}
+
+static void sdpa_pv_tile_unpackedT4_fp32(float* out_tile, const float* value, const float* score, int max_jj, int out_embed_dim)
+{
+    float* outptr_tile = out_tile;
+
+    int k = 0;
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m128 _out0 = _mm_loadu_ps(outptr_tile);
+        __m128 _out1 = _mm_loadu_ps(outptr_tile + 4);
+        __m128 _out2 = _mm_loadu_ps(outptr_tile + 4 * 2);
+        __m128 _out3 = _mm_loadu_ps(outptr_tile + 4 * 3);
+
+        const float* sptr = score;
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m128 _p = _mm_loadu_ps(sptr);
+            _out0 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[0]), _out0);
+            _out1 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[1]), _out1);
+            _out2 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[2]), _out2);
+            _out3 = _mm_comp_fmadd_ps(_p, _mm_set1_ps(vptr0[3]), _out3);
+            sptr += 4;
+            vptr0 += out_embed_dim;
+        }
+
+        _mm_storeu_ps(outptr_tile, _out0);
+        _mm_storeu_ps(outptr_tile + 4, _out1);
+        _mm_storeu_ps(outptr_tile + 4 * 2, _out2);
+        _mm_storeu_ps(outptr_tile + 4 * 3, _out3);
+        outptr_tile += 16;
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        __m128 _out = _mm_loadu_ps(outptr_tile);
+        const float* sptr = score;
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm_comp_fmadd_ps(_mm_loadu_ps(sptr), _mm_set1_ps(*vptr0), _out);
+            sptr += 4;
+            vptr0 += out_embed_dim;
+        }
+        _mm_storeu_ps(outptr_tile, _out);
+        outptr_tile += 4;
+    }
+}
+
+static void sdpa_pv_tile_unpackedT1_fp32(float* outptr, const float* value, const float* score, int max_jj, int out_embed_dim)
+{
+    int k = 0;
+    for (; k + 15 < out_embed_dim; k += 16)
+    {
+        __m512 _out = _mm512_loadu_ps(outptr + k);
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm512_fmadd_ps(_mm512_set1_ps(score[j]), _mm512_loadu_ps(vptr0), _out);
+            vptr0 += out_embed_dim;
+        }
+        _mm512_storeu_ps(outptr + k, _out);
+    }
+    for (; k + 7 < out_embed_dim; k += 8)
+    {
+        __m256 _out = _mm256_loadu_ps(outptr + k);
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm256_comp_fmadd_ps(_mm256_set1_ps(score[j]), _mm256_loadu_ps(vptr0), _out);
+            vptr0 += out_embed_dim;
+        }
+        _mm256_storeu_ps(outptr + k, _out);
+    }
+    for (; k + 3 < out_embed_dim; k += 4)
+    {
+        __m128 _out = _mm_loadu_ps(outptr + k);
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _out = _mm_comp_fmadd_ps(_mm_set1_ps(score[j]), _mm_loadu_ps(vptr0), _out);
+            vptr0 += out_embed_dim;
+        }
+        _mm_storeu_ps(outptr + k, _out);
+    }
+    for (; k < out_embed_dim; k++)
+    {
+        float out = outptr[k];
+        const float* vptr0 = value + k;
+        for (int j = 0; j < max_jj; j++)
+        {
+            out += score[j] * *vptr0;
+            vptr0 += out_embed_dim;
+        }
+        outptr[k] = out;
+    }
+}
+
+static void sdpa_flash_attention_tile_packedT16_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
+{
+    const int MAX_BLOCK_M = 16;
+    const int MAX_EMBED_DIM = 128;
+    const int MAX_OUT_EMBED_DIM = 128;
+    const size_t packed_value_tile_stride = sdpa_packed_value_tile_stride_fp32(nstep, out_embed_dim);
+
+    float query_tile[MAX_BLOCK_M * MAX_EMBED_DIM];
+    float out_tile[MAX_BLOCK_M * MAX_OUT_EMBED_DIM];
+
+    sdpa_pack_query_tile16_fp32(query, query_tile, i, embed_dim);
+
+    float* outptr_tile = out_tile;
+    for (int k = 0; k < out_embed_dim; k++)
+    {
+        _mm512_storeu_ps(outptr_tile, _mm512_setzero_ps());
+        outptr_tile += 16;
+    }
+
+    __m512 _m = _mm512_set1_ps(-FLT_MAX);
+    __m512 _l = _mm512_setzero_ps();
+
+    for (int n_start = n_begin; n_start < n_end; n_start += nstep)
+    {
+        int max_jj = nstep;
+        if (n_start + nstep > n_end)
+            max_jj = n_end - n_start;
+
+        sdpa_qk_tile_packedT_fp32(query_tile, packed_key, score, n_start, max_jj, embed_dim, nstep, scale);
+
+        __m512 _max = _m;
+        float* sptr = score;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _max = _mm512_max_ps(_max, _mm512_loadu_ps(sptr));
+            sptr += 16;
+        }
+
+        __m512 _correction = exp512_ps(_mm512_sub_ps(_m, _max));
+
+        if (n_start != n_begin)
+        {
+            outptr_tile = out_tile;
+            for (int k = 0; k < out_embed_dim; k++)
             {
-                const float v = *kptr;
-                sum0 += qptr0[k] * v;
-                sum1 += qptr1[k] * v;
-                sum2 += qptr2[k] * v;
-                sum3 += qptr3[k] * v;
-                sum4 += qptr4[k] * v;
-                sum5 += qptr5[k] * v;
-                sum6 += qptr6[k] * v;
-                sum7 += qptr7[k] * v;
-                sum8 += qptr8[k] * v;
-                sum9 += qptr9[k] * v;
-                suma += qptra[k] * v;
-                sumb += qptrb[k] * v;
-                sumc += qptrc[k] * v;
-                sumd += qptrd[k] * v;
-                sume += qptre[k] * v;
-                sumf += qptrf[k] * v;
-                kptr += dst_seqlen;
+                _mm512_storeu_ps(outptr_tile, _mm512_mul_ps(_mm512_loadu_ps(outptr_tile), _correction));
+                outptr_tile += 16;
             }
+        }
 
-            sptr0[j] = sum0 * scale;
-            sptr1[j] = sum1 * scale;
-            sptr2[j] = sum2 * scale;
-            sptr3[j] = sum3 * scale;
-            sptr4[j] = sum4 * scale;
-            sptr5[j] = sum5 * scale;
-            sptr6[j] = sum6 * scale;
-            sptr7[j] = sum7 * scale;
-            sptr8[j] = sum8 * scale;
-            sptr9[j] = sum9 * scale;
-            sptra[j] = suma * scale;
-            sptrb[j] = sumb * scale;
-            sptrc[j] = sumc * scale;
-            sptrd[j] = sumd * scale;
-            sptre[j] = sume * scale;
-            sptrf[j] = sumf * scale;
+        __m512 _sum = _mm512_setzero_ps();
+        sptr = score;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m512 _p = exp512_ps(_mm512_sub_ps(_mm512_loadu_ps(sptr), _max));
+            _mm512_storeu_ps(sptr, _p);
+            _sum = _mm512_add_ps(_sum, _p);
+            sptr += 16;
+        }
+
+        _l = _mm512_fmadd_ps(_l, _correction, _sum);
+        _m = _max;
+
+        if (packed_value)
+        {
+            const int n_tile = n_start / nstep;
+            const float* packed_value_tile = packed_value + (size_t)n_tile * packed_value_tile_stride;
+            sdpa_pv_tile_packedT16_fp32(out_tile, packed_value_tile, score, max_jj, out_embed_dim);
+        }
+        else
+        {
+            const float* value_tile = value + (size_t)n_start * out_embed_dim;
+            sdpa_pv_tile_unpackedT16_fp32(out_tile, value_tile, score, max_jj, out_embed_dim);
         }
     }
-#endif
+
+    if (k_end)
+    {
+        sdpa_store_out_tile16_fp32(outptr, out_tile, out_embed_dim, _mm512_div_ps(_mm512_set1_ps(1.f), _l));
+    }
+    else
+    {
+        _mm512_storeu_ps(m_vec, _m);
+        _mm512_storeu_ps(l_vec, _l);
+        memcpy(outptr, out_tile, (size_t)out_embed_dim * 16 * sizeof(float));
+    }
+}
+
+static void sdpa_flash_attention_tile_packedT8_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
+{
+    const int MAX_BLOCK_M = 8;
+    const int MAX_EMBED_DIM = 128;
+    const int MAX_OUT_EMBED_DIM = 128;
+    const size_t packed_value_tile_stride = sdpa_packed_value_tile_stride_fp32(nstep, out_embed_dim);
+
+    float query_tile[MAX_BLOCK_M * MAX_EMBED_DIM];
+    float out_tile[MAX_BLOCK_M * MAX_OUT_EMBED_DIM];
+
+    sdpa_pack_query_tile8_fp32(query, query_tile, i, embed_dim);
+
+    float* outptr_tile = out_tile;
+    for (int k = 0; k < out_embed_dim; k++)
+    {
+        _mm256_storeu_ps(outptr_tile, _mm256_setzero_ps());
+        outptr_tile += 8;
+    }
+
+    __m256 _m = _mm256_set1_ps(-FLT_MAX);
+    __m256 _l = _mm256_setzero_ps();
+
+    for (int n_start = n_begin; n_start < n_end; n_start += nstep)
+    {
+        int max_jj = nstep;
+        if (n_start + nstep > n_end)
+            max_jj = n_end - n_start;
+
+        sdpa_qk_tile_packedT8_fp32(query_tile, packed_key, score, n_start, max_jj, embed_dim, nstep, scale);
+
+        __m256 _max = _m;
+        float* sptr = score;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _max = _mm256_max_ps(_max, _mm256_loadu_ps(sptr));
+            sptr += 8;
+        }
+
+        __m256 _correction = exp256_ps(_mm256_sub_ps(_m, _max));
+
+        if (n_start != n_begin)
+        {
+            outptr_tile = out_tile;
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                _mm256_storeu_ps(outptr_tile, _mm256_mul_ps(_mm256_loadu_ps(outptr_tile), _correction));
+                outptr_tile += 8;
+            }
+        }
+
+        __m256 _sum = _mm256_setzero_ps();
+        sptr = score;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m256 _p = exp256_ps(_mm256_sub_ps(_mm256_loadu_ps(sptr), _max));
+            _mm256_storeu_ps(sptr, _p);
+            _sum = _mm256_add_ps(_sum, _p);
+            sptr += 8;
+        }
+
+        _l = _mm256_comp_fmadd_ps(_l, _correction, _sum);
+        _m = _max;
+
+        if (packed_value)
+        {
+            const int n_tile = n_start / nstep;
+            const float* packed_value_tile = packed_value + (size_t)n_tile * packed_value_tile_stride;
+            sdpa_pv_tile_packedT8_fp32(out_tile, packed_value_tile, score, max_jj, out_embed_dim);
+        }
+        else
+        {
+            const float* value_tile = value + (size_t)n_start * out_embed_dim;
+            sdpa_pv_tile_unpackedT8_fp32(out_tile, value_tile, score, max_jj, out_embed_dim);
+        }
+    }
+
+    if (k_end)
+    {
+        sdpa_store_out_tile8_fp32(outptr, out_tile, out_embed_dim, _mm256_div_ps(_mm256_set1_ps(1.f), _l));
+    }
+    else
+    {
+        _mm256_storeu_ps(m_vec, _m);
+        _mm256_storeu_ps(l_vec, _l);
+        memcpy(outptr, out_tile, (size_t)out_embed_dim * 8 * sizeof(float));
+    }
+}
+
+static void sdpa_flash_attention_tile_packedT4_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
+{
+    const int MAX_BLOCK_M = 4;
+    const int MAX_EMBED_DIM = 128;
+    const int MAX_OUT_EMBED_DIM = 128;
+    const size_t packed_value_tile_stride = sdpa_packed_value_tile_stride_fp32(nstep, out_embed_dim);
+
+    float query_tile[MAX_BLOCK_M * MAX_EMBED_DIM];
+    float out_tile[MAX_BLOCK_M * MAX_OUT_EMBED_DIM];
+
+    sdpa_pack_query_tile4_fp32(query, query_tile, i, embed_dim);
+
+    float* outptr_tile = out_tile;
+    for (int k = 0; k < out_embed_dim; k++)
+    {
+        _mm_storeu_ps(outptr_tile, _mm_setzero_ps());
+        outptr_tile += 4;
+    }
+
+    __m128 _m = _mm_set1_ps(-FLT_MAX);
+    __m128 _l = _mm_setzero_ps();
+
+    for (int n_start = n_begin; n_start < n_end; n_start += nstep)
+    {
+        int max_jj = nstep;
+        if (n_start + nstep > n_end)
+            max_jj = n_end - n_start;
+
+        sdpa_qk_tile_packedT4_fp32(query_tile, packed_key, score, n_start, max_jj, embed_dim, nstep, scale);
+
+        __m128 _max = _m;
+        float* sptr = score;
+        for (int j = 0; j < max_jj; j++)
+        {
+            _max = _mm_max_ps(_max, _mm_loadu_ps(sptr));
+            sptr += 4;
+        }
+
+        __m128 _correction = exp_ps(_mm_sub_ps(_m, _max));
+
+        if (n_start != n_begin)
+        {
+            outptr_tile = out_tile;
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                _mm_storeu_ps(outptr_tile, _mm_mul_ps(_mm_loadu_ps(outptr_tile), _correction));
+                outptr_tile += 4;
+            }
+        }
+
+        __m128 _sum = _mm_setzero_ps();
+        sptr = score;
+        for (int j = 0; j < max_jj; j++)
+        {
+            __m128 _p = exp_ps(_mm_sub_ps(_mm_loadu_ps(sptr), _max));
+            _mm_storeu_ps(sptr, _p);
+            _sum = _mm_add_ps(_sum, _p);
+            sptr += 4;
+        }
+
+        _l = _mm_comp_fmadd_ps(_l, _correction, _sum);
+        _m = _max;
+
+        if (packed_value)
+        {
+            const int n_tile = n_start / nstep;
+            const float* packed_value_tile = packed_value + (size_t)n_tile * packed_value_tile_stride;
+            sdpa_pv_tile_packedT4_fp32(out_tile, packed_value_tile, score, max_jj, out_embed_dim);
+        }
+        else
+        {
+            const float* value_tile = value + (size_t)n_start * out_embed_dim;
+            sdpa_pv_tile_unpackedT4_fp32(out_tile, value_tile, score, max_jj, out_embed_dim);
+        }
+    }
+
+    if (k_end)
+    {
+        sdpa_store_out_tile4_fp32(outptr, out_tile, out_embed_dim, _mm_div_ps(_mm_set1_ps(1.f), _l));
+    }
+    else
+    {
+        _mm_storeu_ps(m_vec, _m);
+        _mm_storeu_ps(l_vec, _l);
+        memcpy(outptr, out_tile, (size_t)out_embed_dim * 4 * sizeof(float));
+    }
+}
+
+static void sdpa_flash_attention_tile_packedT1_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
+{
+    const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(nstep, embed_dim);
+    const size_t packed_value_tile_stride = sdpa_packed_value_tile_stride_fp32(nstep, out_embed_dim);
+
+    const float* qptr = query + i * embed_dim;
+
+    for (int k = 0; k < out_embed_dim; k++)
+    {
+        outptr[k] = 0.f;
+    }
+
+    float m = -FLT_MAX;
+    float l = 0.f;
+
+    for (int n_start = n_begin; n_start < n_end; n_start += nstep)
+    {
+        int max_jj = nstep;
+        if (n_start + nstep > n_end)
+            max_jj = n_end - n_start;
+
+        const int n_tile = n_start / nstep;
+        const float* packed_key_tile = packed_key + (size_t)n_tile * packed_key_tile_stride;
+
+        const float* pK = packed_key_tile;
+        int j = 0;
+        __m512 _scale16 = _mm512_set1_ps(scale);
+        for (; j + 15 < max_jj; j += 16)
+        {
+            __m512 _sum = _mm512_setzero_ps();
+            for (int k = 0; k < embed_dim; k++)
+            {
+                _sum = _mm512_fmadd_ps(_mm512_set1_ps(qptr[k]), _mm512_loadu_ps(pK), _sum);
+                pK += 16;
+            }
+            _mm512_storeu_ps(score + j, _mm512_mul_ps(_sum, _scale16));
+        }
+
+        __m256 _scale8 = _mm256_set1_ps(scale);
+        for (; j + 7 < max_jj; j += 8)
+        {
+            __m256 _sum = _mm256_setzero_ps();
+            for (int k = 0; k < embed_dim; k++)
+            {
+                _sum = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr[k]), _mm256_loadu_ps(pK), _sum);
+                pK += 8;
+            }
+            _mm256_storeu_ps(score + j, _mm256_mul_ps(_sum, _scale8));
+        }
+
+        __m128 _scale4 = _mm_set1_ps(scale);
+        for (; j + 3 < max_jj; j += 4)
+        {
+            __m128 _sum = _mm_setzero_ps();
+            for (int k = 0; k < embed_dim; k++)
+            {
+                _sum = _mm_comp_fmadd_ps(_mm_set1_ps(qptr[k]), _mm_loadu_ps(pK), _sum);
+                pK += 4;
+            }
+            _mm_storeu_ps(score + j, _mm_mul_ps(_sum, _scale4));
+        }
+
+        for (; j < max_jj; j++)
+        {
+            float sum = 0.f;
+
+            for (int k = 0; k < embed_dim; k++)
+            {
+                sum += qptr[k] * pK[k];
+            }
+
+            pK += embed_dim;
+            score[j] = sum * scale;
+        }
+
+        float max = m;
+        for (int j = 0; j < max_jj; j++)
+        {
+            max = std::max(max, score[j]);
+        }
+
+        const float correction = expf(m - max);
+        if (correction != 1.f)
+        {
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                outptr[k] *= correction;
+            }
+        }
+
+        float sum = 0.f;
+        for (int j = 0; j < max_jj; j++)
+        {
+            const float p = expf(score[j] - max);
+            score[j] = p;
+            sum += p;
+        }
+
+        l = l * correction + sum;
+        m = max;
+
+        if (packed_value)
+        {
+            const float* packed_value_tile = packed_value + (size_t)n_tile * packed_value_tile_stride;
+            sdpa_pv_tile_packedT1_fp32(outptr, packed_value_tile, score, max_jj, out_embed_dim);
+        }
+        else
+        {
+            const float* value_tile = value + (size_t)n_start * out_embed_dim;
+            sdpa_pv_tile_unpackedT1_fp32(outptr, value_tile, score, max_jj, out_embed_dim);
+        }
+    }
+
+    if (k_end)
+    {
+        const float scale0 = 1.f / l;
+        for (int k = 0; k < out_embed_dim; k++)
+        {
+            outptr[k] *= scale0;
+        }
+    }
+    else
+    {
+        m_vec[0] = m;
+        l_vec[0] = l;
+    }
+}
+
+static void sdpa_flash_attention_tile_packedT_fp32(const float* query, const float* packed_key, const float* value, const float* packed_value, float* outptr, float* score, float* m_vec, float* l_vec, int i, int max_ii, int n_begin, int n_end, int nstep, int embed_dim, int out_embed_dim, float scale, bool k_end)
+{
+    int ii = 0;
+
+    for (; ii + 15 < max_ii; ii += 16)
+    {
+        sdpa_flash_attention_tile_packedT16_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
+    }
 
     for (; ii + 7 < max_ii; ii += 8)
     {
-        const float* qptr0 = query + (i + ii) * embed_dim;
-        const float* qptr1 = query + (i + ii + 1) * embed_dim;
-        const float* qptr2 = query + (i + ii + 2) * embed_dim;
-        const float* qptr3 = query + (i + ii + 3) * embed_dim;
-        const float* qptr4 = query + (i + ii + 4) * embed_dim;
-        const float* qptr5 = query + (i + ii + 5) * embed_dim;
-        const float* qptr6 = query + (i + ii + 6) * embed_dim;
-        const float* qptr7 = query + (i + ii + 7) * embed_dim;
-
-        float* sptr0 = score + ii * BLOCK_N;
-        float* sptr1 = sptr0 + BLOCK_N;
-        float* sptr2 = sptr1 + BLOCK_N;
-        float* sptr3 = sptr2 + BLOCK_N;
-        float* sptr4 = sptr3 + BLOCK_N;
-        float* sptr5 = sptr4 + BLOCK_N;
-        float* sptr6 = sptr5 + BLOCK_N;
-        float* sptr7 = sptr6 + BLOCK_N;
-
-        int j = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-        {
-            __m512 _scale = _mm512_set1_ps(scale);
-            for (; j + 15 < max_jj; j += 16)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m512 _sum0 = _mm512_setzero_ps();
-                __m512 _sum1 = _mm512_setzero_ps();
-                __m512 _sum2 = _mm512_setzero_ps();
-                __m512 _sum3 = _mm512_setzero_ps();
-                __m512 _sum4 = _mm512_setzero_ps();
-                __m512 _sum5 = _mm512_setzero_ps();
-                __m512 _sum6 = _mm512_setzero_ps();
-                __m512 _sum7 = _mm512_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m512 _k = _mm512_loadu_ps(kptr);
-                    _sum0 = _mm512_fmadd_ps(_mm512_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm512_fmadd_ps(_mm512_set1_ps(qptr1[k]), _k, _sum1);
-                    _sum2 = _mm512_fmadd_ps(_mm512_set1_ps(qptr2[k]), _k, _sum2);
-                    _sum3 = _mm512_fmadd_ps(_mm512_set1_ps(qptr3[k]), _k, _sum3);
-                    _sum4 = _mm512_fmadd_ps(_mm512_set1_ps(qptr4[k]), _k, _sum4);
-                    _sum5 = _mm512_fmadd_ps(_mm512_set1_ps(qptr5[k]), _k, _sum5);
-                    _sum6 = _mm512_fmadd_ps(_mm512_set1_ps(qptr6[k]), _k, _sum6);
-                    _sum7 = _mm512_fmadd_ps(_mm512_set1_ps(qptr7[k]), _k, _sum7);
-                    kptr += dst_seqlen;
-                }
-
-                _mm512_storeu_ps(sptr0 + j, _mm512_mul_ps(_sum0, _scale));
-                _mm512_storeu_ps(sptr1 + j, _mm512_mul_ps(_sum1, _scale));
-                _mm512_storeu_ps(sptr2 + j, _mm512_mul_ps(_sum2, _scale));
-                _mm512_storeu_ps(sptr3 + j, _mm512_mul_ps(_sum3, _scale));
-                _mm512_storeu_ps(sptr4 + j, _mm512_mul_ps(_sum4, _scale));
-                _mm512_storeu_ps(sptr5 + j, _mm512_mul_ps(_sum5, _scale));
-                _mm512_storeu_ps(sptr6 + j, _mm512_mul_ps(_sum6, _scale));
-                _mm512_storeu_ps(sptr7 + j, _mm512_mul_ps(_sum7, _scale));
-            }
-        }
-#endif // __AVX512F__
-        {
-            __m256 _scale = _mm256_set1_ps(scale);
-            for (; j + 7 < max_jj; j += 8)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m256 _sum0 = _mm256_setzero_ps();
-                __m256 _sum1 = _mm256_setzero_ps();
-                __m256 _sum2 = _mm256_setzero_ps();
-                __m256 _sum3 = _mm256_setzero_ps();
-                __m256 _sum4 = _mm256_setzero_ps();
-                __m256 _sum5 = _mm256_setzero_ps();
-                __m256 _sum6 = _mm256_setzero_ps();
-                __m256 _sum7 = _mm256_setzero_ps();
-
-                int k = 0;
-                for (; k + 3 < embed_dim; k += 4)
-                {
-                    const float* kptr0 = kptr;
-                    const float* kptr1 = kptr0 + dst_seqlen;
-                    const float* kptr2 = kptr1 + dst_seqlen;
-                    const float* kptr3 = kptr2 + dst_seqlen;
-
-                    __m256 _k0 = _mm256_loadu_ps(kptr0);
-                    __m256 _k1 = _mm256_loadu_ps(kptr1);
-                    __m256 _k2 = _mm256_loadu_ps(kptr2);
-                    __m256 _k3 = _mm256_loadu_ps(kptr3);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k]), _k0, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k]), _k0, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k]), _k0, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k]), _k0, _sum3);
-                    _sum4 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr4[k]), _k0, _sum4);
-                    _sum5 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr5[k]), _k0, _sum5);
-                    _sum6 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr6[k]), _k0, _sum6);
-                    _sum7 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr7[k]), _k0, _sum7);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k + 1]), _k1, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k + 1]), _k1, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k + 1]), _k1, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k + 1]), _k1, _sum3);
-                    _sum4 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr4[k + 1]), _k1, _sum4);
-                    _sum5 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr5[k + 1]), _k1, _sum5);
-                    _sum6 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr6[k + 1]), _k1, _sum6);
-                    _sum7 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr7[k + 1]), _k1, _sum7);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k + 2]), _k2, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k + 2]), _k2, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k + 2]), _k2, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k + 2]), _k2, _sum3);
-                    _sum4 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr4[k + 2]), _k2, _sum4);
-                    _sum5 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr5[k + 2]), _k2, _sum5);
-                    _sum6 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr6[k + 2]), _k2, _sum6);
-                    _sum7 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr7[k + 2]), _k2, _sum7);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k + 3]), _k3, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k + 3]), _k3, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k + 3]), _k3, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k + 3]), _k3, _sum3);
-                    _sum4 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr4[k + 3]), _k3, _sum4);
-                    _sum5 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr5[k + 3]), _k3, _sum5);
-                    _sum6 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr6[k + 3]), _k3, _sum6);
-                    _sum7 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr7[k + 3]), _k3, _sum7);
-
-                    kptr = kptr3 + dst_seqlen;
-                }
-                for (; k < embed_dim; k++)
-                {
-                    __m256 _k = _mm256_loadu_ps(kptr);
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k]), _k, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k]), _k, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k]), _k, _sum3);
-                    _sum4 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr4[k]), _k, _sum4);
-                    _sum5 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr5[k]), _k, _sum5);
-                    _sum6 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr6[k]), _k, _sum6);
-                    _sum7 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr7[k]), _k, _sum7);
-                    kptr += dst_seqlen;
-                }
-
-                _mm256_storeu_ps(sptr0 + j, _mm256_mul_ps(_sum0, _scale));
-                _mm256_storeu_ps(sptr1 + j, _mm256_mul_ps(_sum1, _scale));
-                _mm256_storeu_ps(sptr2 + j, _mm256_mul_ps(_sum2, _scale));
-                _mm256_storeu_ps(sptr3 + j, _mm256_mul_ps(_sum3, _scale));
-                _mm256_storeu_ps(sptr4 + j, _mm256_mul_ps(_sum4, _scale));
-                _mm256_storeu_ps(sptr5 + j, _mm256_mul_ps(_sum5, _scale));
-                _mm256_storeu_ps(sptr6 + j, _mm256_mul_ps(_sum6, _scale));
-                _mm256_storeu_ps(sptr7 + j, _mm256_mul_ps(_sum7, _scale));
-            }
-        }
-#endif // __AVX__
-        {
-            __m128 _scale = _mm_set1_ps(scale);
-            for (; j + 3 < max_jj; j += 4)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m128 _sum0 = _mm_setzero_ps();
-                __m128 _sum1 = _mm_setzero_ps();
-                __m128 _sum2 = _mm_setzero_ps();
-                __m128 _sum3 = _mm_setzero_ps();
-                __m128 _sum4 = _mm_setzero_ps();
-                __m128 _sum5 = _mm_setzero_ps();
-                __m128 _sum6 = _mm_setzero_ps();
-                __m128 _sum7 = _mm_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m128 _k = _mm_loadu_ps(kptr);
-                    _sum0 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr1[k]), _k, _sum1);
-                    _sum2 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr2[k]), _k, _sum2);
-                    _sum3 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr3[k]), _k, _sum3);
-                    _sum4 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr4[k]), _k, _sum4);
-                    _sum5 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr5[k]), _k, _sum5);
-                    _sum6 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr6[k]), _k, _sum6);
-                    _sum7 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr7[k]), _k, _sum7);
-                    kptr += dst_seqlen;
-                }
-
-                _mm_storeu_ps(sptr0 + j, _mm_mul_ps(_sum0, _scale));
-                _mm_storeu_ps(sptr1 + j, _mm_mul_ps(_sum1, _scale));
-                _mm_storeu_ps(sptr2 + j, _mm_mul_ps(_sum2, _scale));
-                _mm_storeu_ps(sptr3 + j, _mm_mul_ps(_sum3, _scale));
-                _mm_storeu_ps(sptr4 + j, _mm_mul_ps(_sum4, _scale));
-                _mm_storeu_ps(sptr5 + j, _mm_mul_ps(_sum5, _scale));
-                _mm_storeu_ps(sptr6 + j, _mm_mul_ps(_sum6, _scale));
-                _mm_storeu_ps(sptr7 + j, _mm_mul_ps(_sum7, _scale));
-            }
-        }
-#endif // __SSE2__
-        for (; j < max_jj; j++)
-        {
-            const float* kptr = packed_key + n_start + j;
-
-            float sum0 = 0.f;
-            float sum1 = 0.f;
-            float sum2 = 0.f;
-            float sum3 = 0.f;
-            float sum4 = 0.f;
-            float sum5 = 0.f;
-            float sum6 = 0.f;
-            float sum7 = 0.f;
-
-            for (int k = 0; k < embed_dim; k++)
-            {
-                const float v = *kptr;
-                sum0 += qptr0[k] * v;
-                sum1 += qptr1[k] * v;
-                sum2 += qptr2[k] * v;
-                sum3 += qptr3[k] * v;
-                sum4 += qptr4[k] * v;
-                sum5 += qptr5[k] * v;
-                sum6 += qptr6[k] * v;
-                sum7 += qptr7[k] * v;
-                kptr += dst_seqlen;
-            }
-
-            sptr0[j] = sum0 * scale;
-            sptr1[j] = sum1 * scale;
-            sptr2[j] = sum2 * scale;
-            sptr3[j] = sum3 * scale;
-            sptr4[j] = sum4 * scale;
-            sptr5[j] = sum5 * scale;
-            sptr6[j] = sum6 * scale;
-            sptr7[j] = sum7 * scale;
-        }
+        sdpa_flash_attention_tile_packedT8_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
 
     for (; ii + 3 < max_ii; ii += 4)
     {
-        const float* qptr0 = query + (i + ii) * embed_dim;
-        const float* qptr1 = query + (i + ii + 1) * embed_dim;
-        const float* qptr2 = query + (i + ii + 2) * embed_dim;
-        const float* qptr3 = query + (i + ii + 3) * embed_dim;
-
-        float* sptr0 = score + ii * BLOCK_N;
-        float* sptr1 = sptr0 + BLOCK_N;
-        float* sptr2 = sptr1 + BLOCK_N;
-        float* sptr3 = sptr2 + BLOCK_N;
-
-        int j = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-        {
-            __m512 _scale = _mm512_set1_ps(scale);
-            for (; j + 15 < max_jj; j += 16)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m512 _sum0 = _mm512_setzero_ps();
-                __m512 _sum1 = _mm512_setzero_ps();
-                __m512 _sum2 = _mm512_setzero_ps();
-                __m512 _sum3 = _mm512_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m512 _k = _mm512_loadu_ps(kptr);
-                    _sum0 = _mm512_fmadd_ps(_mm512_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm512_fmadd_ps(_mm512_set1_ps(qptr1[k]), _k, _sum1);
-                    _sum2 = _mm512_fmadd_ps(_mm512_set1_ps(qptr2[k]), _k, _sum2);
-                    _sum3 = _mm512_fmadd_ps(_mm512_set1_ps(qptr3[k]), _k, _sum3);
-                    kptr += dst_seqlen;
-                }
-
-                _mm512_storeu_ps(sptr0 + j, _mm512_mul_ps(_sum0, _scale));
-                _mm512_storeu_ps(sptr1 + j, _mm512_mul_ps(_sum1, _scale));
-                _mm512_storeu_ps(sptr2 + j, _mm512_mul_ps(_sum2, _scale));
-                _mm512_storeu_ps(sptr3 + j, _mm512_mul_ps(_sum3, _scale));
-            }
-        }
-#endif // __AVX512F__
-        {
-            __m256 _scale = _mm256_set1_ps(scale);
-            for (; j + 7 < max_jj; j += 8)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m256 _sum0 = _mm256_setzero_ps();
-                __m256 _sum1 = _mm256_setzero_ps();
-                __m256 _sum2 = _mm256_setzero_ps();
-                __m256 _sum3 = _mm256_setzero_ps();
-
-                int k = 0;
-                for (; k + 3 < embed_dim; k += 4)
-                {
-                    const float* kptr0 = kptr;
-                    const float* kptr1 = kptr0 + dst_seqlen;
-                    const float* kptr2 = kptr1 + dst_seqlen;
-                    const float* kptr3 = kptr2 + dst_seqlen;
-
-                    __m256 _k0 = _mm256_loadu_ps(kptr0);
-                    __m256 _k1 = _mm256_loadu_ps(kptr1);
-                    __m256 _k2 = _mm256_loadu_ps(kptr2);
-                    __m256 _k3 = _mm256_loadu_ps(kptr3);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k]), _k0, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k]), _k0, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k]), _k0, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k]), _k0, _sum3);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k + 1]), _k1, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k + 1]), _k1, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k + 1]), _k1, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k + 1]), _k1, _sum3);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k + 2]), _k2, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k + 2]), _k2, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k + 2]), _k2, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k + 2]), _k2, _sum3);
-
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k + 3]), _k3, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k + 3]), _k3, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k + 3]), _k3, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k + 3]), _k3, _sum3);
-
-                    kptr = kptr3 + dst_seqlen;
-                }
-                for (; k < embed_dim; k++)
-                {
-                    __m256 _k = _mm256_loadu_ps(kptr);
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k]), _k, _sum1);
-                    _sum2 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr2[k]), _k, _sum2);
-                    _sum3 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr3[k]), _k, _sum3);
-                    kptr += dst_seqlen;
-                }
-
-                _mm256_storeu_ps(sptr0 + j, _mm256_mul_ps(_sum0, _scale));
-                _mm256_storeu_ps(sptr1 + j, _mm256_mul_ps(_sum1, _scale));
-                _mm256_storeu_ps(sptr2 + j, _mm256_mul_ps(_sum2, _scale));
-                _mm256_storeu_ps(sptr3 + j, _mm256_mul_ps(_sum3, _scale));
-            }
-        }
-#endif // __AVX__
-        {
-            __m128 _scale = _mm_set1_ps(scale);
-            for (; j + 3 < max_jj; j += 4)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m128 _sum0 = _mm_setzero_ps();
-                __m128 _sum1 = _mm_setzero_ps();
-                __m128 _sum2 = _mm_setzero_ps();
-                __m128 _sum3 = _mm_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m128 _k = _mm_loadu_ps(kptr);
-                    _sum0 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr1[k]), _k, _sum1);
-                    _sum2 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr2[k]), _k, _sum2);
-                    _sum3 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr3[k]), _k, _sum3);
-                    kptr += dst_seqlen;
-                }
-
-                _mm_storeu_ps(sptr0 + j, _mm_mul_ps(_sum0, _scale));
-                _mm_storeu_ps(sptr1 + j, _mm_mul_ps(_sum1, _scale));
-                _mm_storeu_ps(sptr2 + j, _mm_mul_ps(_sum2, _scale));
-                _mm_storeu_ps(sptr3 + j, _mm_mul_ps(_sum3, _scale));
-            }
-        }
-#endif // __SSE2__
-        for (; j < max_jj; j++)
-        {
-            const float* kptr = packed_key + n_start + j;
-
-            float sum0 = 0.f;
-            float sum1 = 0.f;
-            float sum2 = 0.f;
-            float sum3 = 0.f;
-
-            for (int k = 0; k < embed_dim; k++)
-            {
-                const float v = *kptr;
-                sum0 += qptr0[k] * v;
-                sum1 += qptr1[k] * v;
-                sum2 += qptr2[k] * v;
-                sum3 += qptr3[k] * v;
-                kptr += dst_seqlen;
-            }
-
-            sptr0[j] = sum0 * scale;
-            sptr1[j] = sum1 * scale;
-            sptr2[j] = sum2 * scale;
-            sptr3[j] = sum3 * scale;
-        }
-    }
-
-    for (; ii + 1 < max_ii; ii += 2)
-    {
-        const float* qptr0 = query + (i + ii) * embed_dim;
-        const float* qptr1 = query + (i + ii + 1) * embed_dim;
-
-        float* sptr0 = score + ii * BLOCK_N;
-        float* sptr1 = sptr0 + BLOCK_N;
-
-        int j = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-        {
-            __m512 _scale = _mm512_set1_ps(scale);
-            for (; j + 15 < max_jj; j += 16)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m512 _sum0 = _mm512_setzero_ps();
-                __m512 _sum1 = _mm512_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m512 _k = _mm512_loadu_ps(kptr);
-                    _sum0 = _mm512_fmadd_ps(_mm512_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm512_fmadd_ps(_mm512_set1_ps(qptr1[k]), _k, _sum1);
-                    kptr += dst_seqlen;
-                }
-
-                _mm512_storeu_ps(sptr0 + j, _mm512_mul_ps(_sum0, _scale));
-                _mm512_storeu_ps(sptr1 + j, _mm512_mul_ps(_sum1, _scale));
-            }
-        }
-#endif // __AVX512F__
-        {
-            __m256 _scale = _mm256_set1_ps(scale);
-            for (; j + 7 < max_jj; j += 8)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m256 _sum0 = _mm256_setzero_ps();
-                __m256 _sum1 = _mm256_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m256 _k = _mm256_loadu_ps(kptr);
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr1[k]), _k, _sum1);
-                    kptr += dst_seqlen;
-                }
-
-                _mm256_storeu_ps(sptr0 + j, _mm256_mul_ps(_sum0, _scale));
-                _mm256_storeu_ps(sptr1 + j, _mm256_mul_ps(_sum1, _scale));
-            }
-        }
-#endif // __AVX__
-        {
-            __m128 _scale = _mm_set1_ps(scale);
-            for (; j + 3 < max_jj; j += 4)
-            {
-                const float* kptr = packed_key + n_start + j;
-
-                __m128 _sum0 = _mm_setzero_ps();
-                __m128 _sum1 = _mm_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    __m128 _k = _mm_loadu_ps(kptr);
-                    _sum0 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr0[k]), _k, _sum0);
-                    _sum1 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr1[k]), _k, _sum1);
-                    kptr += dst_seqlen;
-                }
-
-                _mm_storeu_ps(sptr0 + j, _mm_mul_ps(_sum0, _scale));
-                _mm_storeu_ps(sptr1 + j, _mm_mul_ps(_sum1, _scale));
-            }
-        }
-#endif // __SSE2__
-        for (; j < max_jj; j++)
-        {
-            const float* kptr = packed_key + n_start + j;
-
-            float sum0 = 0.f;
-            float sum1 = 0.f;
-
-            for (int k = 0; k < embed_dim; k++)
-            {
-                const float v = *kptr;
-                sum0 += qptr0[k] * v;
-                sum1 += qptr1[k] * v;
-                kptr += dst_seqlen;
-            }
-
-            sptr0[j] = sum0 * scale;
-            sptr1[j] = sum1 * scale;
-        }
+        sdpa_flash_attention_tile_packedT4_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
 
     for (; ii < max_ii; ii++)
     {
-        const float* qptr0 = query + (i + ii) * embed_dim;
-        float* sptr0 = score + ii * BLOCK_N;
-
-        int j = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-        {
-            __m512 _scale = _mm512_set1_ps(scale);
-            for (; j + 15 < max_jj; j += 16)
-            {
-                const float* kptr = packed_key + n_start + j;
-                __m512 _sum0 = _mm512_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    _sum0 = _mm512_fmadd_ps(_mm512_set1_ps(qptr0[k]), _mm512_loadu_ps(kptr), _sum0);
-                    kptr += dst_seqlen;
-                }
-
-                _mm512_storeu_ps(sptr0 + j, _mm512_mul_ps(_sum0, _scale));
-            }
-        }
-#endif // __AVX512F__
-        {
-            __m256 _scale = _mm256_set1_ps(scale);
-            for (; j + 7 < max_jj; j += 8)
-            {
-                const float* kptr = packed_key + n_start + j;
-                __m256 _sum0 = _mm256_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    _sum0 = _mm256_comp_fmadd_ps(_mm256_set1_ps(qptr0[k]), _mm256_loadu_ps(kptr), _sum0);
-                    kptr += dst_seqlen;
-                }
-
-                _mm256_storeu_ps(sptr0 + j, _mm256_mul_ps(_sum0, _scale));
-            }
-        }
-#endif // __AVX__
-        {
-            __m128 _scale = _mm_set1_ps(scale);
-            for (; j + 3 < max_jj; j += 4)
-            {
-                const float* kptr = packed_key + n_start + j;
-                __m128 _sum0 = _mm_setzero_ps();
-
-                for (int k = 0; k < embed_dim; k++)
-                {
-                    _sum0 = _mm_comp_fmadd_ps(_mm_set1_ps(qptr0[k]), _mm_loadu_ps(kptr), _sum0);
-                    kptr += dst_seqlen;
-                }
-
-                _mm_storeu_ps(sptr0 + j, _mm_mul_ps(_sum0, _scale));
-            }
-        }
-#endif // __SSE2__
-        for (; j < max_jj; j++)
-        {
-            const float* kptr = packed_key + n_start + j;
-            float sum0 = 0.f;
-
-            for (int k = 0; k < embed_dim; k++)
-            {
-                sum0 += qptr0[k] * *kptr;
-                kptr += dst_seqlen;
-            }
-
-            sptr0[j] = sum0 * scale;
-        }
+        sdpa_flash_attention_tile_packedT1_fp32(query, packed_key, value, packed_value, outptr + ii * out_embed_dim, score, m_vec + ii, l_vec + ii, i + ii, n_begin, n_end, nstep, embed_dim, out_embed_dim, scale, k_end);
     }
 }
+#endif // __AVX512F__
 
 static void sdpa_pv_tile_fp32(float* outptr, const float* value, const float* score, int max_ii, int n_start, int max_jj, int out_embed_dim)
 {
@@ -2706,420 +3957,292 @@ static void sdpa_flash_attention_tile_fp32(const float* query, const float* past
     }
 }
 
-static void sdpa_flash_attention_tile_packed_fp32(const float* query, const float* packed_key, const float* value, const float* mask, float* outptr, float* score, float* m_vec, float* l_vec, int i, int max_ii, int n_begin, int n_end, int nstep, int dst_seqlen, int embed_dim, int out_embed_dim, int mask_stride, float scale, bool k_end)
-{
-    const int BLOCK_N = 256;
-
-    for (int ii = 0; ii < max_ii; ii++)
-    {
-        m_vec[ii] = -FLT_MAX;
-        l_vec[ii] = 0.f;
-    }
-
-    for (int n_start = n_begin; n_start < n_end; n_start += nstep)
-    {
-        int max_jj = nstep;
-        if (n_start + nstep > n_end)
-            max_jj = n_end - n_start;
-
-        sdpa_qk_tile_packed_fp32(query, packed_key, score, i, max_ii, n_start, max_jj, embed_dim, dst_seqlen, scale);
-
-        for (int ii = 0; ii < max_ii; ii++)
-        {
-            float* sptr = score + ii * BLOCK_N;
-            float* outptr0 = outptr + ii * out_embed_dim;
-            const float* mptr = mask ? mask + (i + ii) * mask_stride + n_start : 0;
-
-            float max = m_vec[ii];
-
-            int j = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-            {
-                __m512 _max = _mm512_set1_ps(max);
-                for (; j + 15 < max_jj; j += 16)
-                {
-                    __m512 _s = _mm512_loadu_ps(sptr + j);
-                    if (mptr)
-                    {
-                        _s = _mm512_add_ps(_s, _mm512_loadu_ps(mptr + j));
-                        _mm512_storeu_ps(sptr + j, _s);
-                    }
-                    _max = _mm512_max_ps(_max, _s);
-                }
-                max = std::max(max, _mm512_comp_reduce_max_ps(_max));
-            }
-#endif // __AVX512F__
-            {
-                __m256 _max = _mm256_set1_ps(max);
-                for (; j + 7 < max_jj; j += 8)
-                {
-                    __m256 _s = _mm256_loadu_ps(sptr + j);
-                    if (mptr)
-                    {
-                        _s = _mm256_add_ps(_s, _mm256_loadu_ps(mptr + j));
-                        _mm256_storeu_ps(sptr + j, _s);
-                    }
-                    _max = _mm256_max_ps(_max, _s);
-                }
-                max = std::max(max, _mm256_reduce_max_ps(_max));
-            }
-#endif // __AVX__
-            {
-                __m128 _max = _mm_set1_ps(max);
-                for (; j + 3 < max_jj; j += 4)
-                {
-                    __m128 _s = _mm_loadu_ps(sptr + j);
-                    if (mptr)
-                    {
-                        _s = _mm_add_ps(_s, _mm_loadu_ps(mptr + j));
-                        _mm_storeu_ps(sptr + j, _s);
-                    }
-                    _max = _mm_max_ps(_max, _s);
-                }
-                max = std::max(max, _mm_reduce_max_ps(_max));
-            }
-#endif // __SSE2__
-            for (; j < max_jj; j++)
-            {
-                if (mptr)
-                    sptr[j] += mptr[j];
-                max = std::max(max, sptr[j]);
-            }
-
-            if (l_vec[ii] != 0.f)
-            {
-                const float correction = expf(m_vec[ii] - max);
-                if (correction != 1.f)
-                {
-                    int k = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-                    {
-                        __m512 _correction = _mm512_set1_ps(correction);
-                        for (; k + 15 < out_embed_dim; k += 16)
-                        {
-                            _mm512_storeu_ps(outptr0 + k, _mm512_mul_ps(_mm512_loadu_ps(outptr0 + k), _correction));
-                        }
-                    }
-#endif // __AVX512F__
-                    {
-                        __m256 _correction = _mm256_set1_ps(correction);
-                        for (; k + 7 < out_embed_dim; k += 8)
-                        {
-                            _mm256_storeu_ps(outptr0 + k, _mm256_mul_ps(_mm256_loadu_ps(outptr0 + k), _correction));
-                        }
-                    }
-#endif // __AVX__
-                    {
-                        __m128 _correction = _mm_set1_ps(correction);
-                        for (; k + 3 < out_embed_dim; k += 4)
-                        {
-                            _mm_storeu_ps(outptr0 + k, _mm_mul_ps(_mm_loadu_ps(outptr0 + k), _correction));
-                        }
-                    }
-#endif // __SSE2__
-                    for (; k < out_embed_dim; k++)
-                    {
-                        outptr0[k] *= correction;
-                    }
-
-                    l_vec[ii] *= correction;
-                }
-            }
-
-            float sum = 0.f;
-
-            j = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-            {
-                __m512 _max0 = _mm512_set1_ps(max);
-                __m512 _sum0 = _mm512_setzero_ps();
-                for (; j + 15 < max_jj; j += 16)
-                {
-                    __m512 _p = _mm512_loadu_ps(sptr + j);
-                    _p = exp512_ps(_mm512_sub_ps(_p, _max0));
-                    _mm512_storeu_ps(sptr + j, _p);
-                    _sum0 = _mm512_add_ps(_sum0, _p);
-                }
-                sum += _mm512_comp_reduce_add_ps(_sum0);
-            }
-#endif // __AVX512F__
-            {
-                __m256 _max0 = _mm256_set1_ps(max);
-                __m256 _sum0 = _mm256_setzero_ps();
-                for (; j + 7 < max_jj; j += 8)
-                {
-                    __m256 _p = _mm256_loadu_ps(sptr + j);
-                    _p = exp256_ps(_mm256_sub_ps(_p, _max0));
-                    _mm256_storeu_ps(sptr + j, _p);
-                    _sum0 = _mm256_add_ps(_sum0, _p);
-                }
-                sum += _mm256_reduce_add_ps(_sum0);
-            }
-#endif // __AVX__
-            {
-                __m128 _max0 = _mm_set1_ps(max);
-                __m128 _sum0 = _mm_setzero_ps();
-                for (; j + 3 < max_jj; j += 4)
-                {
-                    __m128 _p = _mm_loadu_ps(sptr + j);
-                    _p = exp_ps(_mm_sub_ps(_p, _max0));
-                    _mm_storeu_ps(sptr + j, _p);
-                    _sum0 = _mm_add_ps(_sum0, _p);
-                }
-                sum += _mm_reduce_add_ps(_sum0);
-            }
-#endif // __SSE2__
-            for (; j < max_jj; j++)
-            {
-                float v = expf(sptr[j] - max);
-                sptr[j] = v;
-                sum += v;
-            }
-
-            l_vec[ii] += sum;
-            m_vec[ii] = max;
-        }
-
-        if (n_start == n_begin)
-            sdpa_pv_tile_fp32(outptr, value, score, max_ii, n_start, max_jj, out_embed_dim);
-        else
-            sdpa_pv_tile_accumulate_fp32(outptr, value, score, max_ii, n_start, max_jj, out_embed_dim);
-    }
-
-    if (k_end)
-    {
-        for (int ii = 0; ii < max_ii; ii++)
-        {
-            float* outptr0 = outptr + ii * out_embed_dim;
-            const float scale0 = 1.f / l_vec[ii];
-
-            int k = 0;
-#if __SSE2__
-#if __AVX__
-#if __AVX512F__
-            {
-                __m512 _scale0 = _mm512_set1_ps(scale0);
-                for (; k + 15 < out_embed_dim; k += 16)
-                {
-                    _mm512_storeu_ps(outptr0 + k, _mm512_mul_ps(_mm512_loadu_ps(outptr0 + k), _scale0));
-                }
-            }
-#endif // __AVX512F__
-            {
-                __m256 _scale0 = _mm256_set1_ps(scale0);
-                for (; k + 7 < out_embed_dim; k += 8)
-                {
-                    _mm256_storeu_ps(outptr0 + k, _mm256_mul_ps(_mm256_loadu_ps(outptr0 + k), _scale0));
-                }
-            }
-#endif // __AVX__
-            {
-                __m128 _scale0 = _mm_set1_ps(scale0);
-                for (; k + 3 < out_embed_dim; k += 4)
-                {
-                    _mm_storeu_ps(outptr0 + k, _mm_mul_ps(_mm_loadu_ps(outptr0 + k), _scale0));
-                }
-            }
-#endif // __SSE2__
-            for (; k < out_embed_dim; k++)
-            {
-                outptr0[k] *= scale0;
-            }
-        }
-    }
-}
-
-static int sdpa_pack_key_transpose_fp32(const Mat& cur_key, Mat& packed_key, const Option& opt)
+static int sdpa_pack_key_transpose_fp32(const Mat& cur_key, Mat& packed_key, int tile_n, const Option& opt)
 {
     const int embed_dim = cur_key.w;
     const int cur_seqlen = cur_key.h;
     const int num_group = cur_key.c;
+    const size_t packed_key_tile_stride = sdpa_packed_key_tile_stride_fp32(tile_n, embed_dim);
+    const int num_tiles = (cur_seqlen + tile_n - 1) / tile_n;
 
-    packed_key.create(cur_seqlen, embed_dim, num_group, 4u, opt.workspace_allocator);
+    packed_key.create(packed_key_tile_stride, num_tiles, num_group, 4u, opt.workspace_allocator);
     if (packed_key.empty())
         return -100;
 
     #pragma omp parallel for num_threads(opt.num_threads)
-    for (int q = 0; q < num_group; q++)
+    for (int task_id = 0; task_id < num_group * num_tiles; task_id++)
     {
+        const int q = task_id / num_tiles;
+        const int tile_id = task_id % num_tiles;
+        const int tile_base = tile_id * tile_n;
+
         const Mat cur_key_head = cur_key.channel(q);
         Mat packed_key_head = packed_key.channel(q);
+        const float* key_base = (const float*)cur_key_head + (size_t)tile_base * embed_dim;
+        float* pp = (float*)packed_key_head + (size_t)tile_id * packed_key_tile_stride;
 
-        int k = 0;
+        const int max_jj = std::min(tile_n, cur_seqlen - tile_base);
+        int j = 0;
+
 #if __AVX512F__
-        for (; k + 15 < embed_dim; k += 16)
+        for (; j + 15 < max_jj; j += 16)
         {
-            float* outptr0 = packed_key_head.row(k);
-            float* outptr1 = packed_key_head.row(k + 1);
-            float* outptr2 = packed_key_head.row(k + 2);
-            float* outptr3 = packed_key_head.row(k + 3);
-            float* outptr4 = packed_key_head.row(k + 4);
-            float* outptr5 = packed_key_head.row(k + 5);
-            float* outptr6 = packed_key_head.row(k + 6);
-            float* outptr7 = packed_key_head.row(k + 7);
-            float* outptr8 = packed_key_head.row(k + 8);
-            float* outptr9 = packed_key_head.row(k + 9);
-            float* outptra = packed_key_head.row(k + 10);
-            float* outptrb = packed_key_head.row(k + 11);
-            float* outptrc = packed_key_head.row(k + 12);
-            float* outptrd = packed_key_head.row(k + 13);
-            float* outptre = packed_key_head.row(k + 14);
-            float* outptrf = packed_key_head.row(k + 15);
-
-            int i = 0;
-            for (; i + 15 < cur_seqlen; i += 16)
+            const float* p0 = key_base + (size_t)j * embed_dim;
+            int k = 0;
+            for (; k + 15 < embed_dim; k += 16)
             {
-                const float* kptr0 = cur_key_head.row(i) + k;
-                const float* kptr1 = cur_key_head.row(i + 1) + k;
-                const float* kptr2 = cur_key_head.row(i + 2) + k;
-                const float* kptr3 = cur_key_head.row(i + 3) + k;
-                const float* kptr4 = cur_key_head.row(i + 4) + k;
-                const float* kptr5 = cur_key_head.row(i + 5) + k;
-                const float* kptr6 = cur_key_head.row(i + 6) + k;
-                const float* kptr7 = cur_key_head.row(i + 7) + k;
-                const float* kptr8 = cur_key_head.row(i + 8) + k;
-                const float* kptr9 = cur_key_head.row(i + 9) + k;
-                const float* kptra = cur_key_head.row(i + 10) + k;
-                const float* kptrb = cur_key_head.row(i + 11) + k;
-                const float* kptrc = cur_key_head.row(i + 12) + k;
-                const float* kptrd = cur_key_head.row(i + 13) + k;
-                const float* kptre = cur_key_head.row(i + 14) + k;
-                const float* kptrf = cur_key_head.row(i + 15) + k;
+                const float* p = p0 + k;
 
-                __m512 _r0 = _mm512_loadu_ps(kptr0);
-                __m512 _r1 = _mm512_loadu_ps(kptr1);
-                __m512 _r2 = _mm512_loadu_ps(kptr2);
-                __m512 _r3 = _mm512_loadu_ps(kptr3);
-                __m512 _r4 = _mm512_loadu_ps(kptr4);
-                __m512 _r5 = _mm512_loadu_ps(kptr5);
-                __m512 _r6 = _mm512_loadu_ps(kptr6);
-                __m512 _r7 = _mm512_loadu_ps(kptr7);
-                __m512 _r8 = _mm512_loadu_ps(kptr8);
-                __m512 _r9 = _mm512_loadu_ps(kptr9);
-                __m512 _ra = _mm512_loadu_ps(kptra);
-                __m512 _rb = _mm512_loadu_ps(kptrb);
-                __m512 _rc = _mm512_loadu_ps(kptrc);
-                __m512 _rd = _mm512_loadu_ps(kptrd);
-                __m512 _re = _mm512_loadu_ps(kptre);
-                __m512 _rf = _mm512_loadu_ps(kptrf);
+                __m512 _r0 = _mm512_loadu_ps(p);
+                __m512 _r1 = _mm512_loadu_ps(p + (size_t)embed_dim);
+                __m512 _r2 = _mm512_loadu_ps(p + (size_t)embed_dim * 2);
+                __m512 _r3 = _mm512_loadu_ps(p + (size_t)embed_dim * 3);
+                __m512 _r4 = _mm512_loadu_ps(p + (size_t)embed_dim * 4);
+                __m512 _r5 = _mm512_loadu_ps(p + (size_t)embed_dim * 5);
+                __m512 _r6 = _mm512_loadu_ps(p + (size_t)embed_dim * 6);
+                __m512 _r7 = _mm512_loadu_ps(p + (size_t)embed_dim * 7);
+                __m512 _r8 = _mm512_loadu_ps(p + (size_t)embed_dim * 8);
+                __m512 _r9 = _mm512_loadu_ps(p + (size_t)embed_dim * 9);
+                __m512 _ra = _mm512_loadu_ps(p + (size_t)embed_dim * 10);
+                __m512 _rb = _mm512_loadu_ps(p + (size_t)embed_dim * 11);
+                __m512 _rc = _mm512_loadu_ps(p + (size_t)embed_dim * 12);
+                __m512 _rd = _mm512_loadu_ps(p + (size_t)embed_dim * 13);
+                __m512 _re = _mm512_loadu_ps(p + (size_t)embed_dim * 14);
+                __m512 _rf = _mm512_loadu_ps(p + (size_t)embed_dim * 15);
 
                 transpose16x16_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7, _r8, _r9, _ra, _rb, _rc, _rd, _re, _rf);
 
-                _mm512_storeu_ps(outptr0 + i, _r0);
-                _mm512_storeu_ps(outptr1 + i, _r1);
-                _mm512_storeu_ps(outptr2 + i, _r2);
-                _mm512_storeu_ps(outptr3 + i, _r3);
-                _mm512_storeu_ps(outptr4 + i, _r4);
-                _mm512_storeu_ps(outptr5 + i, _r5);
-                _mm512_storeu_ps(outptr6 + i, _r6);
-                _mm512_storeu_ps(outptr7 + i, _r7);
-                _mm512_storeu_ps(outptr8 + i, _r8);
-                _mm512_storeu_ps(outptr9 + i, _r9);
-                _mm512_storeu_ps(outptra + i, _ra);
-                _mm512_storeu_ps(outptrb + i, _rb);
-                _mm512_storeu_ps(outptrc + i, _rc);
-                _mm512_storeu_ps(outptrd + i, _rd);
-                _mm512_storeu_ps(outptre + i, _re);
-                _mm512_storeu_ps(outptrf + i, _rf);
+                _mm512_storeu_ps(pp, _r0);
+                _mm512_storeu_ps(pp + 16, _r1);
+                _mm512_storeu_ps(pp + 32, _r2);
+                _mm512_storeu_ps(pp + 48, _r3);
+                _mm512_storeu_ps(pp + 64, _r4);
+                _mm512_storeu_ps(pp + 80, _r5);
+                _mm512_storeu_ps(pp + 96, _r6);
+                _mm512_storeu_ps(pp + 112, _r7);
+                _mm512_storeu_ps(pp + 128, _r8);
+                _mm512_storeu_ps(pp + 144, _r9);
+                _mm512_storeu_ps(pp + 160, _ra);
+                _mm512_storeu_ps(pp + 176, _rb);
+                _mm512_storeu_ps(pp + 192, _rc);
+                _mm512_storeu_ps(pp + 208, _rd);
+                _mm512_storeu_ps(pp + 224, _re);
+                _mm512_storeu_ps(pp + 240, _rf);
+                pp += 256;
             }
-
-            for (; i < cur_seqlen; i++)
+            for (; k < embed_dim; k++)
             {
-                const float* kptr = cur_key_head.row(i) + k;
-
-                outptr0[i] = kptr[0];
-                outptr1[i] = kptr[1];
-                outptr2[i] = kptr[2];
-                outptr3[i] = kptr[3];
-                outptr4[i] = kptr[4];
-                outptr5[i] = kptr[5];
-                outptr6[i] = kptr[6];
-                outptr7[i] = kptr[7];
-                outptr8[i] = kptr[8];
-                outptr9[i] = kptr[9];
-                outptra[i] = kptr[10];
-                outptrb[i] = kptr[11];
-                outptrc[i] = kptr[12];
-                outptrd[i] = kptr[13];
-                outptre[i] = kptr[14];
-                outptrf[i] = kptr[15];
+                const float* p = p0 + k;
+                pp[0] = p[0];
+                pp[1] = p[(size_t)embed_dim];
+                pp[2] = p[(size_t)embed_dim * 2];
+                pp[3] = p[(size_t)embed_dim * 3];
+                pp[4] = p[(size_t)embed_dim * 4];
+                pp[5] = p[(size_t)embed_dim * 5];
+                pp[6] = p[(size_t)embed_dim * 6];
+                pp[7] = p[(size_t)embed_dim * 7];
+                pp[8] = p[(size_t)embed_dim * 8];
+                pp[9] = p[(size_t)embed_dim * 9];
+                pp[10] = p[(size_t)embed_dim * 10];
+                pp[11] = p[(size_t)embed_dim * 11];
+                pp[12] = p[(size_t)embed_dim * 12];
+                pp[13] = p[(size_t)embed_dim * 13];
+                pp[14] = p[(size_t)embed_dim * 14];
+                pp[15] = p[(size_t)embed_dim * 15];
+                pp += 16;
             }
         }
 #endif // __AVX512F__
 #if __AVX__
-        for (; k + 7 < embed_dim; k += 8)
+        for (; j + 7 < max_jj; j += 8)
         {
-            float* outptr0 = packed_key_head.row(k);
-            float* outptr1 = packed_key_head.row(k + 1);
-            float* outptr2 = packed_key_head.row(k + 2);
-            float* outptr3 = packed_key_head.row(k + 3);
-            float* outptr4 = packed_key_head.row(k + 4);
-            float* outptr5 = packed_key_head.row(k + 5);
-            float* outptr6 = packed_key_head.row(k + 6);
-            float* outptr7 = packed_key_head.row(k + 7);
-
-            int i = 0;
-            for (; i + 7 < cur_seqlen; i += 8)
+            const float* p0 = key_base + (size_t)j * embed_dim;
+            int k = 0;
+            for (; k + 7 < embed_dim; k += 8)
             {
-                const float* kptr0 = cur_key_head.row(i) + k;
-                const float* kptr1 = cur_key_head.row(i + 1) + k;
-                const float* kptr2 = cur_key_head.row(i + 2) + k;
-                const float* kptr3 = cur_key_head.row(i + 3) + k;
-                const float* kptr4 = cur_key_head.row(i + 4) + k;
-                const float* kptr5 = cur_key_head.row(i + 5) + k;
-                const float* kptr6 = cur_key_head.row(i + 6) + k;
-                const float* kptr7 = cur_key_head.row(i + 7) + k;
+                const float* p = p0 + k;
 
-                __m256 _r0 = _mm256_loadu_ps(kptr0);
-                __m256 _r1 = _mm256_loadu_ps(kptr1);
-                __m256 _r2 = _mm256_loadu_ps(kptr2);
-                __m256 _r3 = _mm256_loadu_ps(kptr3);
-                __m256 _r4 = _mm256_loadu_ps(kptr4);
-                __m256 _r5 = _mm256_loadu_ps(kptr5);
-                __m256 _r6 = _mm256_loadu_ps(kptr6);
-                __m256 _r7 = _mm256_loadu_ps(kptr7);
+                __m256 _r0 = _mm256_loadu_ps(p);
+                __m256 _r1 = _mm256_loadu_ps(p + (size_t)embed_dim);
+                __m256 _r2 = _mm256_loadu_ps(p + (size_t)embed_dim * 2);
+                __m256 _r3 = _mm256_loadu_ps(p + (size_t)embed_dim * 3);
+                __m256 _r4 = _mm256_loadu_ps(p + (size_t)embed_dim * 4);
+                __m256 _r5 = _mm256_loadu_ps(p + (size_t)embed_dim * 5);
+                __m256 _r6 = _mm256_loadu_ps(p + (size_t)embed_dim * 6);
+                __m256 _r7 = _mm256_loadu_ps(p + (size_t)embed_dim * 7);
 
                 transpose8x8_ps(_r0, _r1, _r2, _r3, _r4, _r5, _r6, _r7);
 
-                _mm256_storeu_ps(outptr0 + i, _r0);
-                _mm256_storeu_ps(outptr1 + i, _r1);
-                _mm256_storeu_ps(outptr2 + i, _r2);
-                _mm256_storeu_ps(outptr3 + i, _r3);
-                _mm256_storeu_ps(outptr4 + i, _r4);
-                _mm256_storeu_ps(outptr5 + i, _r5);
-                _mm256_storeu_ps(outptr6 + i, _r6);
-                _mm256_storeu_ps(outptr7 + i, _r7);
+                _mm256_storeu_ps(pp, _r0);
+                _mm256_storeu_ps(pp + 8, _r1);
+                _mm256_storeu_ps(pp + 16, _r2);
+                _mm256_storeu_ps(pp + 24, _r3);
+                _mm256_storeu_ps(pp + 32, _r4);
+                _mm256_storeu_ps(pp + 40, _r5);
+                _mm256_storeu_ps(pp + 48, _r6);
+                _mm256_storeu_ps(pp + 56, _r7);
+                pp += 64;
             }
-
-            for (; i < cur_seqlen; i++)
+            for (; k < embed_dim; k++)
             {
-                const float* kptr = cur_key_head.row(i) + k;
-
-                outptr0[i] = kptr[0];
-                outptr1[i] = kptr[1];
-                outptr2[i] = kptr[2];
-                outptr3[i] = kptr[3];
-                outptr4[i] = kptr[4];
-                outptr5[i] = kptr[5];
-                outptr6[i] = kptr[6];
-                outptr7[i] = kptr[7];
+                const float* p = p0 + k;
+                pp[0] = p[0];
+                pp[1] = p[(size_t)embed_dim];
+                pp[2] = p[(size_t)embed_dim * 2];
+                pp[3] = p[(size_t)embed_dim * 3];
+                pp[4] = p[(size_t)embed_dim * 4];
+                pp[5] = p[(size_t)embed_dim * 5];
+                pp[6] = p[(size_t)embed_dim * 6];
+                pp[7] = p[(size_t)embed_dim * 7];
+                pp += 8;
             }
         }
 #endif // __AVX__
-        for (; k < embed_dim; k++)
+#if __SSE2__
+        for (; j + 3 < max_jj; j += 4)
         {
-            float* outptr = packed_key_head.row(k);
-
-            for (int i = 0; i < cur_seqlen; i++)
+            const float* p0 = key_base + (size_t)j * embed_dim;
+            int k = 0;
+            for (; k + 3 < embed_dim; k += 4)
             {
-                const float* kptr = cur_key_head.row(i);
-                outptr[i] = kptr[k];
+                const float* p = p0 + k;
+
+                __m128 _r0 = _mm_loadu_ps(p);
+                __m128 _r1 = _mm_loadu_ps(p + (size_t)embed_dim);
+                __m128 _r2 = _mm_loadu_ps(p + (size_t)embed_dim * 2);
+                __m128 _r3 = _mm_loadu_ps(p + (size_t)embed_dim * 3);
+
+                _MM_TRANSPOSE4_PS(_r0, _r1, _r2, _r3);
+
+                _mm_storeu_ps(pp, _r0);
+                _mm_storeu_ps(pp + 4, _r1);
+                _mm_storeu_ps(pp + 8, _r2);
+                _mm_storeu_ps(pp + 12, _r3);
+                pp += 16;
+            }
+            for (; k < embed_dim; k++)
+            {
+                const float* p = p0 + k;
+                pp[0] = p[0];
+                pp[1] = p[(size_t)embed_dim];
+                pp[2] = p[(size_t)embed_dim * 2];
+                pp[3] = p[(size_t)embed_dim * 3];
+                pp += 4;
+            }
+        }
+#endif // __SSE2__
+
+        for (; j < max_jj; j++)
+        {
+            const float* p0 = key_base + (size_t)j * embed_dim;
+            memcpy(pp, p0, (size_t)embed_dim * sizeof(float));
+            pp += embed_dim;
+        }
+    }
+
+    return 0;
+}
+
+static int sdpa_pack_value_fp32(const Mat& cur_value, Mat& packed_value, int tile_n, const Option& opt)
+{
+    const int out_embed_dim = cur_value.w;
+    const int cur_seqlen = cur_value.h;
+    const int num_group = cur_value.c;
+    const size_t packed_value_tile_stride = sdpa_packed_value_tile_stride_fp32(tile_n, out_embed_dim);
+    const int num_tiles = (cur_seqlen + tile_n - 1) / tile_n;
+
+    packed_value.create(packed_value_tile_stride, num_tiles, num_group, 4u, opt.workspace_allocator);
+    if (packed_value.empty())
+        return -100;
+
+    #pragma omp parallel for num_threads(opt.num_threads)
+    for (int task_id = 0; task_id < num_group * num_tiles; task_id++)
+    {
+        const int q = task_id / num_tiles;
+        const int tile_id = task_id % num_tiles;
+        const int tile_base = tile_id * tile_n;
+
+        const Mat cur_value_head = cur_value.channel(q);
+        Mat packed_value_head = packed_value.channel(q);
+        const float* value_base = (const float*)cur_value_head + (size_t)tile_base * out_embed_dim;
+        float* pp = (float*)packed_value_head + (size_t)tile_id * packed_value_tile_stride;
+
+        const int max_jj = std::min(tile_n, cur_seqlen - tile_base);
+
+        int k = 0;
+#if __AVX512F__
+        for (; k + 15 < out_embed_dim; k += 16)
+        {
+            const float* p0 = value_base + k;
+            int j = 0;
+            for (; j + 3 < max_jj; j += 4)
+            {
+                _mm512_storeu_ps(pp, _mm512_loadu_ps(p0));
+                _mm512_storeu_ps(pp + 16, _mm512_loadu_ps(p0 + (size_t)out_embed_dim));
+                _mm512_storeu_ps(pp + 32, _mm512_loadu_ps(p0 + (size_t)out_embed_dim * 2));
+                _mm512_storeu_ps(pp + 48, _mm512_loadu_ps(p0 + (size_t)out_embed_dim * 3));
+                pp += 64;
+                p0 += (size_t)out_embed_dim * 4;
+            }
+            for (; j < max_jj; j++)
+            {
+                _mm512_storeu_ps(pp, _mm512_loadu_ps(p0));
+                pp += 16;
+                p0 += out_embed_dim;
+            }
+        }
+#endif // __AVX512F__
+#if __AVX__
+        for (; k + 7 < out_embed_dim; k += 8)
+        {
+            const float* p0 = value_base + k;
+            int j = 0;
+            for (; j + 3 < max_jj; j += 4)
+            {
+                _mm256_storeu_ps(pp, _mm256_loadu_ps(p0));
+                _mm256_storeu_ps(pp + 8, _mm256_loadu_ps(p0 + (size_t)out_embed_dim));
+                _mm256_storeu_ps(pp + 16, _mm256_loadu_ps(p0 + (size_t)out_embed_dim * 2));
+                _mm256_storeu_ps(pp + 24, _mm256_loadu_ps(p0 + (size_t)out_embed_dim * 3));
+                pp += 32;
+                p0 += (size_t)out_embed_dim * 4;
+            }
+            for (; j < max_jj; j++)
+            {
+                _mm256_storeu_ps(pp, _mm256_loadu_ps(p0));
+                pp += 8;
+                p0 += out_embed_dim;
+            }
+        }
+#endif // __AVX__
+#if __SSE2__
+        for (; k + 3 < out_embed_dim; k += 4)
+        {
+            const float* p0 = value_base + k;
+            int j = 0;
+            for (; j + 3 < max_jj; j += 4)
+            {
+                _mm_storeu_ps(pp, _mm_loadu_ps(p0));
+                _mm_storeu_ps(pp + 4, _mm_loadu_ps(p0 + (size_t)out_embed_dim));
+                _mm_storeu_ps(pp + 8, _mm_loadu_ps(p0 + (size_t)out_embed_dim * 2));
+                _mm_storeu_ps(pp + 12, _mm_loadu_ps(p0 + (size_t)out_embed_dim * 3));
+                pp += 16;
+                p0 += (size_t)out_embed_dim * 4;
+            }
+            for (; j < max_jj; j++)
+            {
+                _mm_storeu_ps(pp, _mm_loadu_ps(p0));
+                pp += 4;
+                p0 += out_embed_dim;
+            }
+        }
+#endif // __SSE2__
+        for (; k < out_embed_dim; k++)
+        {
+            const float* p0 = value_base + k;
+            for (int j = 0; j < max_jj; j++)
+            {
+                *pp++ = *p0;
+                p0 += out_embed_dim;
             }
         }
     }
@@ -3289,6 +4412,185 @@ static void sdpa_flash_attention_reduce_fp32(float* outptr, const Mat& partials_
     }
 }
 
+#if __AVX512F__
+static void sdpa_flash_attention_reduce_packedT_fp32(float* outptr, const Mat& partials_head, int block_m, int out_embed_dim, int num_kv_chunks)
+{
+    const int MAX_BLOCK_M = 16;
+    const int MAX_OUT_EMBED_DIM = 128;
+
+    float m_vec[MAX_BLOCK_M];
+    float l_vec[MAX_BLOCK_M];
+    float out_tile[MAX_BLOCK_M * MAX_OUT_EMBED_DIM];
+
+    for (int i = 0; i < block_m; i++)
+    {
+        m_vec[i] = -FLT_MAX;
+        l_vec[i] = 0.f;
+    }
+
+    for (int i = 0; i < block_m * out_embed_dim; i++)
+    {
+        out_tile[i] = 0.f;
+    }
+
+    for (int c = 0; c < num_kv_chunks; c++)
+    {
+        const float* partial = partials_head.row(c);
+        const float* mptr = partial;
+        const float* lptr = partial + MAX_BLOCK_M;
+        const float* outptr_chunk = partial + MAX_BLOCK_M * 2;
+
+        int ii = 0;
+        for (; ii + 15 < block_m; ii += 16)
+        {
+            __m512 _m0 = _mm512_loadu_ps(m_vec + ii);
+            __m512 _l0 = _mm512_loadu_ps(l_vec + ii);
+            __m512 _m1 = _mm512_loadu_ps(mptr + ii);
+            __m512 _l1 = _mm512_loadu_ps(lptr + ii);
+
+            __m512 _m = _mm512_max_ps(_m0, _m1);
+            __m512 _scale0 = exp512_ps(_mm512_sub_ps(_m0, _m));
+            __m512 _scale1 = exp512_ps(_mm512_sub_ps(_m1, _m));
+
+            float* outptr0 = out_tile + ii * out_embed_dim;
+            const float* outptr1 = outptr_chunk + ii * out_embed_dim;
+
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                __m512 _out0 = _mm512_loadu_ps(outptr0);
+                __m512 _out1 = _mm512_loadu_ps(outptr1);
+                _out0 = _mm512_mul_ps(_out0, _scale0);
+                _out0 = _mm512_fmadd_ps(_out1, _scale1, _out0);
+                _mm512_storeu_ps(outptr0, _out0);
+
+                outptr0 += 16;
+                outptr1 += 16;
+            }
+
+            _l0 = _mm512_fmadd_ps(_l0, _scale0, _mm512_mul_ps(_l1, _scale1));
+            _mm512_storeu_ps(m_vec + ii, _m);
+            _mm512_storeu_ps(l_vec + ii, _l0);
+        }
+
+        for (; ii + 7 < block_m; ii += 8)
+        {
+            __m256 _m0 = _mm256_loadu_ps(m_vec + ii);
+            __m256 _l0 = _mm256_loadu_ps(l_vec + ii);
+            __m256 _m1 = _mm256_loadu_ps(mptr + ii);
+            __m256 _l1 = _mm256_loadu_ps(lptr + ii);
+
+            __m256 _m = _mm256_max_ps(_m0, _m1);
+            __m256 _scale0 = exp256_ps(_mm256_sub_ps(_m0, _m));
+            __m256 _scale1 = exp256_ps(_mm256_sub_ps(_m1, _m));
+
+            float* outptr0 = out_tile + ii * out_embed_dim;
+            const float* outptr1 = outptr_chunk + ii * out_embed_dim;
+
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                __m256 _out0 = _mm256_loadu_ps(outptr0);
+                __m256 _out1 = _mm256_loadu_ps(outptr1);
+                _out0 = _mm256_mul_ps(_out0, _scale0);
+                _out0 = _mm256_comp_fmadd_ps(_out1, _scale1, _out0);
+                _mm256_storeu_ps(outptr0, _out0);
+
+                outptr0 += 8;
+                outptr1 += 8;
+            }
+
+            _l0 = _mm256_comp_fmadd_ps(_l0, _scale0, _mm256_mul_ps(_l1, _scale1));
+            _mm256_storeu_ps(m_vec + ii, _m);
+            _mm256_storeu_ps(l_vec + ii, _l0);
+        }
+
+        for (; ii + 3 < block_m; ii += 4)
+        {
+            __m128 _m0 = _mm_loadu_ps(m_vec + ii);
+            __m128 _l0 = _mm_loadu_ps(l_vec + ii);
+            __m128 _m1 = _mm_loadu_ps(mptr + ii);
+            __m128 _l1 = _mm_loadu_ps(lptr + ii);
+
+            __m128 _m = _mm_max_ps(_m0, _m1);
+            __m128 _scale0 = exp_ps(_mm_sub_ps(_m0, _m));
+            __m128 _scale1 = exp_ps(_mm_sub_ps(_m1, _m));
+
+            float* outptr0 = out_tile + ii * out_embed_dim;
+            const float* outptr1 = outptr_chunk + ii * out_embed_dim;
+
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                __m128 _out0 = _mm_loadu_ps(outptr0);
+                __m128 _out1 = _mm_loadu_ps(outptr1);
+                _out0 = _mm_mul_ps(_out0, _scale0);
+                _out0 = _mm_comp_fmadd_ps(_out1, _scale1, _out0);
+                _mm_storeu_ps(outptr0, _out0);
+
+                outptr0 += 4;
+                outptr1 += 4;
+            }
+
+            _l0 = _mm_comp_fmadd_ps(_l0, _scale0, _mm_mul_ps(_l1, _scale1));
+            _mm_storeu_ps(m_vec + ii, _m);
+            _mm_storeu_ps(l_vec + ii, _l0);
+        }
+
+        for (; ii < block_m; ii++)
+        {
+            const float l_chunk = lptr[ii];
+            if (l_chunk == 0.f)
+                continue;
+
+            const float m_chunk = mptr[ii];
+            const float m = std::max(m_vec[ii], m_chunk);
+            const float scale0 = expf(m_vec[ii] - m);
+            const float scale1 = expf(m_chunk - m);
+
+            float* outptr0 = out_tile + ii * out_embed_dim;
+            const float* outptr1 = outptr_chunk + ii * out_embed_dim;
+
+            for (int k = 0; k < out_embed_dim; k++)
+            {
+                outptr0[k] = outptr0[k] * scale0 + outptr1[k] * scale1;
+            }
+
+            l_vec[ii] = l_vec[ii] * scale0 + l_chunk * scale1;
+            m_vec[ii] = m;
+        }
+    }
+
+    int ii = 0;
+    for (; ii + 15 < block_m; ii += 16)
+    {
+        __m512 _l = _mm512_loadu_ps(l_vec + ii);
+        sdpa_store_out_tile16_fp32(outptr + ii * out_embed_dim, out_tile + ii * out_embed_dim, out_embed_dim, _mm512_div_ps(_mm512_set1_ps(1.f), _l));
+    }
+
+    for (; ii + 7 < block_m; ii += 8)
+    {
+        __m256 _l = _mm256_loadu_ps(l_vec + ii);
+        sdpa_store_out_tile8_fp32(outptr + ii * out_embed_dim, out_tile + ii * out_embed_dim, out_embed_dim, _mm256_div_ps(_mm256_set1_ps(1.f), _l));
+    }
+
+    for (; ii + 3 < block_m; ii += 4)
+    {
+        __m128 _l = _mm_loadu_ps(l_vec + ii);
+        sdpa_store_out_tile4_fp32(outptr + ii * out_embed_dim, out_tile + ii * out_embed_dim, out_embed_dim, _mm_div_ps(_mm_set1_ps(1.f), _l));
+    }
+
+    for (; ii < block_m; ii++)
+    {
+        float* outptr0 = outptr + ii * out_embed_dim;
+        const float* outptr_tile = out_tile + ii * out_embed_dim;
+        const float scale0 = 1.f / l_vec[ii];
+
+        for (int k = 0; k < out_embed_dim; k++)
+        {
+            outptr0[k] = outptr_tile[k] * scale0;
+        }
+    }
+}
+#endif // __AVX512F__
+
 static int sdpa_concat_kv_cache_fp32(const Mat& cur_key, const Mat& cur_value, const Mat& past_key, const Mat& past_value, Mat& key, Mat& value, const Option& opt)
 {
     const int embed_dim = cur_key.w;
@@ -3384,14 +4686,27 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
         return -100;
 
     Mat packed_key;
-    if (past_seqlen == 0 && src_seqlen >= 32 && embed_dim <= 128)
+    Mat packed_value;
+#if __AVX512F__
+    if (past_seqlen == 0 && src_seqlen >= 32 && embed_dim <= 128 && !attn_mask && out_embed_dim <= 128)
     {
-        int ret = sdpa_pack_key_transpose_fp32(cur_key, packed_key, opt);
+        int ret = sdpa_pack_key_transpose_fp32(cur_key, packed_key, TILE_N, opt);
         if (ret != 0)
             return ret;
+
+        const int pack_value = num_heads_per_group > 1;
+        if (pack_value)
+        {
+            ret = sdpa_pack_value_fp32(cur_value, packed_value, TILE_N, opt);
+            if (ret != 0)
+                return ret;
+        }
     }
+#endif // __AVX512F__
 
     const int use_packed_key = !packed_key.empty();
+    const int use_packed_value = !packed_value.empty();
+    (void)use_packed_value;
 
     const int num_kv_chunks = num_tiles < opt.num_threads && num_kv_blocks >= 2 ? std::min(opt.num_threads, num_kv_blocks) : 1;
 
@@ -3441,6 +4756,7 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
         }
         else
         {
+#if __AVX512F__
             #pragma omp parallel for num_threads(opt.num_threads)
             for (int task_id = 0; task_id < num_tiles; task_id++)
             {
@@ -3453,6 +4769,7 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 const Mat query_head = query.channel(q);
                 const Mat packed_key_head = packed_key.channel(g);
                 const Mat cur_value_head = cur_value.channel(g);
+                const Mat packed_value_head = use_packed_value ? packed_value.channel(g) : Mat();
 
                 Mat mask_head;
                 if (attn_mask)
@@ -3465,6 +4782,7 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 const float* query_ptr = query_head;
                 const float* packed_key_ptr = packed_key_head;
                 const float* cur_value_ptr = cur_value_head;
+                const float* packed_value_ptr = use_packed_value ? (const float*)packed_value_head : 0;
                 const float* mask_ptr = mask_head.empty() ? 0 : (const float*)mask_head;
                 const int mask_stride = mask_head.empty() ? 0 : mask_head.w;
 
@@ -3474,8 +4792,11 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 float m_vec[MAX_BLOCK_M];
                 float l_vec[MAX_BLOCK_M];
 
-                sdpa_flash_attention_tile_packed_fp32(query_ptr, packed_key_ptr, cur_value_ptr, mask_ptr, outptr0, score, m_vec, l_vec, i, max_ii, 0, dst_seqlen, TILE_N, dst_seqlen, embed_dim, out_embed_dim, mask_stride, _scale, true);
+                (void)mask_ptr;
+                (void)mask_stride;
+                sdpa_flash_attention_tile_packedT_fp32(query_ptr, packed_key_ptr, cur_value_ptr, packed_value_ptr, outptr0, score, m_vec, l_vec, i, max_ii, 0, dst_seqlen, TILE_N, embed_dim, out_embed_dim, _scale, true);
             }
+#endif // __AVX512F__
         }
     }
     else
@@ -3533,6 +4854,7 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
         }
         else
         {
+#if __AVX512F__
             #pragma omp parallel for num_threads(opt.num_threads)
             for (int task_id = 0; task_id < num_tiles * num_kv_chunks; task_id++)
             {
@@ -3543,12 +4865,13 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 const int g = q / num_heads_per_group;
                 const int i = i_tile * TILE_M;
                 const int max_ii = i + TILE_M < src_seqlen ? TILE_M : src_seqlen - i;
-                const int n_begin = chunk_id * dst_seqlen / num_kv_chunks;
-                const int n_end = (chunk_id + 1) * dst_seqlen / num_kv_chunks;
+                const int n_begin = chunk_id * num_kv_blocks / num_kv_chunks * TILE_N;
+                const int n_end = std::min((chunk_id + 1) * num_kv_blocks / num_kv_chunks * TILE_N, dst_seqlen);
 
                 const Mat query_head = query.channel(q);
                 const Mat packed_key_head = packed_key.channel(g);
                 const Mat cur_value_head = cur_value.channel(g);
+                const Mat packed_value_head = use_packed_value ? packed_value.channel(g) : Mat();
 
                 Mat mask_head;
                 if (attn_mask)
@@ -3561,6 +4884,7 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 const float* query_ptr = query_head;
                 const float* packed_key_ptr = packed_key_head;
                 const float* cur_value_ptr = cur_value_head;
+                const float* packed_value_ptr = use_packed_value ? (const float*)packed_value_head : 0;
                 const float* mask_ptr = mask_head.empty() ? 0 : (const float*)mask_head;
                 const int mask_stride = mask_head.empty() ? 0 : mask_head.w;
 
@@ -3570,8 +4894,11 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
                 float* l_vec = partial + MAX_BLOCK_M;
                 float* outptr0 = partial + MAX_BLOCK_M * 2;
 
-                sdpa_flash_attention_tile_packed_fp32(query_ptr, packed_key_ptr, cur_value_ptr, mask_ptr, outptr0, score, m_vec, l_vec, i, max_ii, n_begin, n_end, TILE_N, dst_seqlen, embed_dim, out_embed_dim, mask_stride, _scale, false);
+                (void)mask_ptr;
+                (void)mask_stride;
+                sdpa_flash_attention_tile_packedT_fp32(query_ptr, packed_key_ptr, cur_value_ptr, packed_value_ptr, outptr0, score, m_vec, l_vec, i, max_ii, n_begin, n_end, TILE_N, embed_dim, out_embed_dim, _scale, false);
             }
+#endif // __AVX512F__
         }
 
         #pragma omp parallel for num_threads(opt.num_threads)
@@ -3583,7 +4910,16 @@ static int sdpa_flash_attention_fp32(const Mat& query, const Mat& cur_key, const
             const int max_ii = i + TILE_M < src_seqlen ? TILE_M : src_seqlen - i;
 
             Mat top_blob_head = top_blob.channel(q);
-            sdpa_flash_attention_reduce_fp32(top_blob_head.row(i), partials.channel(tile_id), max_ii, out_embed_dim, num_kv_chunks);
+#if __AVX512F__
+            if (use_packed_key && !attn_mask && out_embed_dim <= 128)
+            {
+                sdpa_flash_attention_reduce_packedT_fp32(top_blob_head.row(i), partials.channel(tile_id), max_ii, out_embed_dim, num_kv_chunks);
+            }
+            else
+#endif // __AVX512F__
+            {
+                sdpa_flash_attention_reduce_fp32(top_blob_head.row(i), partials.channel(tile_id), max_ii, out_embed_dim, num_kv_chunks);
+            }
         }
     }
 
