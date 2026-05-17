@@ -1028,7 +1028,6 @@ static void sdpa_pack_query_tile4_fp32(const float* query, float* queryT, int i,
 }
 #endif // __SSE2__
 
-
 #if __AVX__
 static __m256 sdpa_qk_tile8_packed_key_fp32(const float* queryT, const float* packed_key_tile, float* scoreT, int max_jj, int embed_dim, float scale)
 {
