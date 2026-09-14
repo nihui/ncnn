@@ -177,12 +177,12 @@ public:
     void create(int w, int h, int c, size_t elemsize, int elempack, Allocator* allocator = 0);
     // allocate packed cube
     void create(int w, int h, int d, int c, size_t elemsize, int elempack, Allocator* allocator = 0);
-    // allocate like
+    // allocate like, including channel stride
     void create_like(const Mat& m, Allocator* allocator = 0);
     // allocate like with batch count
     void create_like(const Mat& m, int n, Allocator* allocator = 0);
 #if NCNN_VULKAN
-    // allocate like
+    // allocate like, including channel stride
     void create_like(const VkMat& m, Allocator* allocator = 0);
     // allocate like with batch count
     void create_like(const VkMat& m, int n, Allocator* allocator = 0);
@@ -461,9 +461,9 @@ public:
     void create(int w, int h, int c, size_t elemsize, int elempack, VkAllocator* allocator);
     // allocate packed cube
     void create(int w, int h, int d, int c, size_t elemsize, int elempack, VkAllocator* allocator);
-    // allocate like
+    // allocate like, including channel stride
     void create_like(const Mat& m, VkAllocator* allocator);
-    // allocate like
+    // allocate like, including channel stride
     void create_like(const VkMat& m, VkAllocator* allocator);
     // allocate like with batch count
     void create_like(const Mat& m, int n, VkAllocator* allocator);

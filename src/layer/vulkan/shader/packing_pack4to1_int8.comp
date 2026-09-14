@@ -9,7 +9,8 @@ layout(constant_id = 1) const int cast_type_to = 1;
 #define shape_constant_id_offset 2
 layout(constant_id = shape_constant_id_offset + 0) const uint n = 0;
 layout(constant_id = shape_constant_id_offset + 1) const uint c = 0;
-layout(constant_id = shape_constant_id_offset + 2) const uint stride = 0;
+layout(constant_id = shape_constant_id_offset + 2) const uint in_stride = 0;
+layout(constant_id = shape_constant_id_offset + 3) const uint out_stride = 0;
 
 layout(binding = 0) readonly buffer bottom_blob { sint8vec4 bottom_blob_data[]; };
 layout(binding = 1) readonly buffer bottom_blob_int32 { ivec4 bottom_blob_int32_data[]; };
@@ -20,7 +21,8 @@ layout(push_constant) uniform parameter
 {
     uint n;
     uint c;
-    uint stride;
+    uint in_stride;
+    uint out_stride;
 } p;
 
 void main()
@@ -31,9 +33,9 @@ void main()
     if (gx >= psc(n) || gy >= psc(c))
         return;
 
-    const uint gi = gy * psc(n) + gx;
+    const uint gi = gy * psc(in_stride) + gx;
 
-    const uvec4 gi4 = (gy * 4 + uvec4(0, 1, 2, 3)) * psc(stride) + gx;
+    const uvec4 gi4 = (gy * 4 + uvec4(0, 1, 2, 3)) * psc(out_stride) + gx;
 
     ivec4 v;
     if (cast_type_from == 3)

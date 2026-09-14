@@ -6,6 +6,7 @@
 #include "cpu.h"
 #include "datareader.h"
 #include "layer_type.h"
+#include "layer/sdpa.h"
 #include "modelbin.h"
 #include "paramdict.h"
 
@@ -25,6 +26,11 @@
 
 namespace ncnn {
 
+static bool is_kvcache_layer(const Layer* layer)
+{
+    return layer && (layer->typeindex == LayerType::MultiHeadAttention || layer->typeindex == LayerType::SDPA) && layer->tops.size() == 3;
+}
+
 // bound model header allocations, including repeated blob references
 static const int max_net_count = 1000000;
 
@@ -42,7 +48,8 @@ public:
     int forward_layer(int layer_index, std::vector<Mat>& blob_mats, std::vector<VkMat>& blob_mats_gpu, VkCompute& cmd, const Option& opt) const;
 #endif // NCNN_VULKAN
 
-    int convert_layout(Mat& bottom_blob, const Layer* layer, const Option& opt) const;
+    int convert_layout(Mat& bottom_blob, const Layer* layer, int index, const Option& opt) const;
+    int convert_kvcache_layout(Mat& cache, const Layer* layer, int out_elempack, int index, const Option& opt) const;
 #if NCNN_VULKAN
     int convert_layout(VkMat& bottom_blob, const Layer* layer, VkCompute& cmd, const Option& opt) const;
 #endif // NCNN_VULKAN
@@ -240,7 +247,14 @@ int NetPrivate::forward_layer(int layer_index, std::vector<Mat>& blob_mats, std:
             if (blob_mats_gpu[bottom_blob_index].dims == 0)
             {
                 // host to buffer
+                if (blob_mats[bottom_blob_index].elempack == 0 && blob_mats[bottom_blob_index].dims != 0)
+                {
+                    NCNN_LOGE("optimal kv cache requires a compatible attention cache input");
+                    return -1;
+                }
                 cmd.record_upload(blob_mats[bottom_blob_index], blob_mats_gpu[bottom_blob_index], opt);
+                if (!blob_mats[bottom_blob_index].empty() && blob_mats[bottom_blob_index].h != 0 && blob_mats_gpu[bottom_blob_index].empty())
+                    return -100;
 
                 if (opt.lightmode)
                 {
@@ -255,6 +269,13 @@ int NetPrivate::forward_layer(int layer_index, std::vector<Mat>& blob_mats, std:
             {
                 Option opt_download = opt;
                 opt_download.use_packing_layout = layer->support_packing;
+
+                // optimal device caches cannot be consumed by a cpu layer
+                if (blob_mats_gpu[bottom_blob_index].elempack == 0 && blob_mats_gpu[bottom_blob_index].dims != 0)
+                {
+                    NCNN_LOGE("optimal kv cache requires a compatible attention cache input");
+                    return -1;
+                }
 
                 // buffer to host
                 cmd.record_download(blob_mats_gpu[bottom_blob_index], blob_mats[bottom_blob_index], opt_download);
@@ -378,13 +399,166 @@ int NetPrivate::forward_layer(int layer_index, std::vector<Mat>& blob_mats, std:
 }
 #endif // NCNN_VULKAN
 
-int NetPrivate::convert_layout(Mat& bottom_blob, const Layer* layer, const Option& opt) const
+int NetPrivate::convert_kvcache_layout(Mat& cache, const Layer* layer, int out_elempack, int index, const Option& opt) const
 {
-    if (bottom_blob.empty())
+    if (cache.dims == 0)
         return 0;
 
-    // skip layout conversion for kv cache
-    if (opt.kvcache_allocator && bottom_blob.allocator == opt.kvcache_allocator)
+    if (cache.dims != 3 || cache.n != 1 || cache.w <= 0 || cache.h < 0 || cache.c <= 0)
+        return -1;
+
+#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) || defined(_M_X64)
+    if (layer->typeindex == LayerType::SDPA && !(opt.use_vulkan_compute && layer->support_vulkan) && find_overwrite_builtin_layer_index(layer->typeindex) == -1 && ((const SDPA*)layer)->int8_scale_term == 0)
+    {
+        if (cache.elempack == 0 && out_elempack == 0)
+            return 0;
+
+        // match the cpu layer selection and bf16 kernel dispatch
+#if __SSE2__
+        int panel_width = 4;
+#else
+        int panel_width = 2;
+#endif
+#if NCNN_AVX
+        if (!NCNN_RUNTIME_CPU || cpu_support_x86_avx())
+            panel_width = 8;
+#endif
+#if NCNN_AVX512
+        if (!NCNN_RUNTIME_CPU || cpu_support_x86_avx512())
+            panel_width = 16;
+#endif
+
+        const bool bf16 = opt.use_bf16_storage && layer->support_bf16_storage;
+        bool paired = false;
+#if NCNN_AVX512BF16
+        if (panel_width == 16 && (!NCNN_RUNTIME_CPU || cpu_support_x86_avx512_bf16()))
+            paired = true;
+#endif
+#if NCNN_AVXNECONVERT
+        if (panel_width == 8 && (NCNN_RUNTIME_CPU ? cpu_support_x86_avx_ne_convert() : NCNN_FMA))
+            paired = true;
+#endif
+
+        const bool materialize = out_elempack == 1;
+        if (cache.d != 1 || cache.elempack != (materialize ? 0 : 1) || cache.elemsize != (materialize && bf16 ? 2u : 4u) || (cache.h > 0 && cache.empty()))
+            return -1;
+
+        const size_t capacity = ((size_t)cache.h + panel_width - 1) / panel_width * panel_width;
+        if (capacity > INT_MAX || cache.cstep < (size_t)cache.w * (materialize ? capacity : cache.h))
+            return -1;
+
+        const size_t elemsize = materialize || !bf16 ? 4u : 2u;
+        Mat m(cache.w, materialize ? cache.h : (int)capacity, cache.c, elemsize, 1, materialize ? opt.blob_allocator : opt.kvcache_allocator);
+        if (cache.h != 0 && m.empty())
+            return -100;
+        m.h = cache.h;
+
+        // keys interleave token lanes, values also interleave dimension blocks
+        const int block_size = index == 1 ? panel_width : bf16 && paired ? 2 : 1;
+        for (int q = 0; q < cache.c && cache.h > 0; q++)
+        {
+            const unsigned char* src = (const unsigned char*)cache.data + cache.cstep * q * cache.elemsize;
+            unsigned char* dst = (unsigned char*)m.data + m.cstep * q * m.elemsize;
+            int x = 0;
+            for (int block = block_size; block > 0; block /= 2)
+            {
+                for (; x + block <= cache.w; x += block)
+                {
+                    for (int y = 0; y < cache.h; y++)
+                    {
+                        const size_t packed_offset = (size_t)(y / panel_width) * cache.w * panel_width + x * panel_width + (y % panel_width) * block;
+                        const size_t row_offset = (size_t)y * cache.w + x;
+                        for (int i = 0; i < block; i++)
+                        {
+                            if (materialize)
+                                ((float*)dst)[row_offset + i] = bf16 ? bfloat16_to_float32(((const unsigned short*)src)[packed_offset + i]) : ((const float*)src)[packed_offset + i];
+                            else if (bf16)
+                                ((unsigned short*)dst)[packed_offset + i] = float32_to_bfloat16(((const float*)src)[row_offset + i]);
+                            else
+                                ((float*)dst)[packed_offset + i] = ((const float*)src)[row_offset + i];
+                        }
+                    }
+                }
+            }
+        }
+
+        if (!materialize)
+            m.elempack = 0;
+        cache = m;
+        return 0;
+    }
+#else
+    (void)index;
+#endif
+
+    if (cache.d != 1 || cache.elempack <= 0 || cache.elemsize % cache.elempack != 0 || cache.cstep < (size_t)cache.w * cache.h)
+        return -1;
+
+    if (cache.h == 0)
+    {
+        cache = Mat(cache.w, 0, cache.c * cache.elempack, 4u, 1);
+        return 0;
+    }
+    if (cache.empty())
+        return -1;
+
+    Option opt_cast = opt;
+    opt_cast.blob_allocator = out_elempack == 0 ? opt.kvcache_allocator : opt.blob_allocator;
+    Mat unpacked;
+    if (cache.elempack != 1)
+        convert_packing(cache, unpacked, 1, opt_cast);
+    else
+        unpacked = cache;
+    if (unpacked.empty())
+        return -100;
+
+    const bool fp16 = opt.use_fp16_storage && layer->support_fp16_storage;
+    const bool bf16 = opt.use_bf16_storage && layer->support_bf16_storage;
+    Mat result;
+    if (out_elempack == 0 && unpacked.elemsize == 4u && fp16)
+        cast_float32_to_float16(unpacked, result, opt_cast);
+    else if (out_elempack == 0 && unpacked.elemsize == 4u && bf16)
+        cast_float32_to_bfloat16(unpacked, result, opt_cast);
+    else if (unpacked.elemsize == 2u && (out_elempack == 1 || !(fp16 || bf16)))
+    {
+        if ((opt.use_vulkan_compute && layer->support_vulkan) ? !(opt.use_bf16_storage || opt.use_bf16_packed) : fp16)
+            cast_float16_to_float32(unpacked, result, opt_cast);
+        else
+            cast_bfloat16_to_float32(unpacked, result, opt_cast);
+    }
+    else if (unpacked.elemsize == 4u || unpacked.elemsize == 2u)
+    {
+        if (out_elempack == 1)
+        {
+            result.create(unpacked.w, unpacked.h, unpacked.c, unpacked.elemsize, 1, opt_cast.blob_allocator);
+            if (result.empty())
+                return -100;
+            for (int q = 0; q < unpacked.c; q++)
+                memcpy(result.channel(q), unpacked.channel(q), (size_t)unpacked.w * unpacked.h * unpacked.elemsize);
+        }
+        else
+            result = unpacked.data == cache.data ? unpacked.clone(opt_cast.blob_allocator) : unpacked;
+    }
+    else
+        return -1;
+    if (result.empty())
+        return -100;
+    cache = result;
+    return 0;
+}
+
+int NetPrivate::convert_layout(Mat& bottom_blob, const Layer* layer, int index, const Option& opt) const
+{
+    if (is_kvcache_layer(layer) && index + 2 >= (int)layer->bottoms.size())
+        return convert_kvcache_layout(bottom_blob, layer, 0, index + 2 - (int)layer->bottoms.size(), opt);
+
+    if (bottom_blob.elempack == 0)
+    {
+        NCNN_LOGE("optimal kv cache requires an attention cache input");
+        return -1;
+    }
+
+    if (bottom_blob.empty())
         return 0;
 
     if (bottom_blob.elembits() == 32)
@@ -615,9 +789,11 @@ int NetPrivate::convert_layout(VkMat& bottom_blob, const Layer* layer, VkCompute
     if (bottom_blob.empty())
         return 0;
 
-    // skip layout conversion for kv cache
-    if (opt.kvcache_vkallocator && bottom_blob.allocator == opt.kvcache_vkallocator)
-        return 0;
+    if (bottom_blob.elempack == 0)
+    {
+        NCNN_LOGE("optimal kv cache requires an attention cache input");
+        return -1;
+    }
 
     int dst_elempack = 1;
     if (layer->support_vulkan_packing)
@@ -678,7 +854,7 @@ int NetPrivate::do_forward_layer(const Layer* layer, std::vector<Mat>& blob_mats
             bottom_blob = bottom_blob_ref;
         }
 
-        int ret = convert_layout(bottom_blob, layer, opt);
+        int ret = convert_layout(bottom_blob, layer, 0, opt);
         if (ret != 0)
             return ret;
 
@@ -787,7 +963,7 @@ int NetPrivate::do_forward_layer(const Layer* layer, std::vector<Mat>& blob_mats
                 bottom_blobs[i] = bottom_blob_ref;
             }
 
-            int ret = convert_layout(bottom_blobs[i], layer, opt);
+            int ret = convert_layout(bottom_blobs[i], layer, (int)i, opt);
             if (ret != 0)
                 return ret;
         }
@@ -3214,9 +3390,24 @@ int Extractor::extract(int blob_index, Mat& feat, int type)
 
             if (ret == 0 && d->blob_mats[blob_index].dims == 0 && feat_gpu.dims != 0)
             {
-                cmd.record_download(feat_gpu, d->blob_mats[blob_index], d->opt);
+                const Layer* layer = d->net->layers()[layer_index];
+                if (is_kvcache_layer(layer) && blob_index != layer->tops[0])
+                {
+                    // keep the original precision and packing for later extraction
+                    Option opt_download = d->opt;
+                    opt_download.blob_allocator = d->opt.kvcache_allocator;
+                    cmd.record_clone(feat_gpu, d->blob_mats[blob_index], opt_download);
+                }
+                else
+                    cmd.record_download(feat_gpu, d->blob_mats[blob_index], d->opt);
 
-                ret = cmd.submit_and_wait();
+                if (!feat_gpu.empty() && d->blob_mats[blob_index].empty())
+                {
+                    d->blob_mats[blob_index].release();
+                    ret = -100;
+                }
+                if (ret == 0)
+                    ret = cmd.submit_and_wait();
 
 #if NCNN_BENCHMARK
                 std::vector<uint64_t> results(d->net->layers().size() * 2);
@@ -3245,15 +3436,19 @@ int Extractor::extract(int blob_index, Mat& feat, int type)
 
     feat = d->blob_mats[blob_index];
 
+    const int producer = d->net->blobs()[blob_index].producer;
+    const Layer* layer = producer >= 0 && producer < (int)d->net->layers().size() ? d->net->layers()[producer] : 0;
+    if (ret == 0 && is_kvcache_layer(layer) && blob_index != layer->tops[0] && type == 0)
+    {
+        const Option opt = layer->featmask ? get_masked_option(d->opt, layer->featmask) : d->opt;
+        ret = d->net->d->convert_kvcache_layout(feat, layer, 1, blob_index == layer->tops[1] ? 0 : 1, opt);
+        if (ret != 0)
+            return ret;
+    }
+
     // empty is valid for outputs
     if (!feat.empty())
     {
-        // preserve kv cache storage layout and reserved capacity
-        const int producer = d->net->blobs()[blob_index].producer;
-        const Layer* layer = producer >= 0 && producer < (int)d->net->layers().size() ? d->net->layers()[producer] : 0;
-        if (layer && (layer->typeindex == LayerType::MultiHeadAttention || layer->typeindex == LayerType::SDPA) && layer->tops.size() == 3 && blob_index != layer->tops[0])
-            type = 1;
-
         if (d->opt.use_packing_layout && (type == 0) && feat.elempack != 1)
         {
             Mat feat_unpacked;
@@ -3435,7 +3630,10 @@ int Extractor::extract(int blob_index, VkMat& feat, VkCompute& cmd)
         if (d->blob_mats[blob_index].dims != 0)
         {
             // host to buffer
-            cmd.record_upload(d->blob_mats[blob_index], d->blob_mats_gpu[blob_index], d->opt);
+            if (d->blob_mats[blob_index].elempack == 0)
+                ret = -1;
+            else
+                cmd.record_upload(d->blob_mats[blob_index], d->blob_mats_gpu[blob_index], d->opt);
         }
         else
         {

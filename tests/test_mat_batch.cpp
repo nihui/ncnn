@@ -13,6 +13,126 @@
 #include <stdio.h>
 #include <string.h>
 
+class CreateLikeAllocator : public ncnn::Allocator
+{
+public:
+    CreateLikeAllocator()
+        : allocations(0), size(0)
+    {
+    }
+
+    virtual void* fastMalloc(size_t bytes)
+    {
+        allocations++;
+        size = bytes;
+        return ncnn::fastMalloc(bytes);
+    }
+
+    virtual void fastFree(void* ptr)
+    {
+        ncnn::fastFree(ptr);
+    }
+
+    int allocations;
+    size_t size;
+};
+
+static int test_create_like(int dims, int elempack, size_t elemsize, int batches)
+{
+    CreateLikeAllocator allocator;
+    ncnn::Mat source;
+    if (dims == 3)
+        source.create(5, 19, 12, elemsize, elempack, batches);
+    else
+        source.create(5, 19, 3, 12, elemsize, elempack, batches);
+    source.h = 7;
+
+    ncnn::Mat result;
+    result.create_like(source, &allocator);
+    if (result.empty() || result.dims != source.dims || result.w != source.w || result.h != source.h || result.d != source.d || result.c != source.c || result.elempack != source.elempack || result.elemsize != source.elemsize || result.cstep != source.cstep || result.n != source.n)
+        return -1;
+    const int allocations = allocator.allocations;
+    result.create_like(source, &allocator);
+    if (allocator.allocations != allocations)
+        return -1;
+
+    // a different stride requires allocation even when the logical shape matches
+    if (dims == 3)
+        source.create(5, 29, 12, elemsize, elempack, batches);
+    else
+        source.create(5, 29, 3, 12, elemsize, elempack, batches);
+    source.h = 7;
+    result.create_like(source, &allocator);
+    if (result.empty() || result.cstep != source.cstep || allocator.allocations != allocations + 1)
+        return -1;
+#if NCNN_BATCH
+    if (result.nstep != source.nstep || allocator.size < result.nstep * result.n * elemsize)
+        return -1;
+#else
+    if (allocator.size < result.total() * elemsize)
+        return -1;
+#endif
+    for (int b = 0; b < result.n; b++)
+        memset(result.batch(b).data, b + 1, result.total() * elemsize);
+
+    // a fresh shape-based allocation uses the ordinary stride
+    result.release();
+    if (dims == 3)
+        result.create(source.w, source.h, source.c, elemsize, elempack, batches, &allocator);
+    else
+        result.create(source.w, source.h, source.d, source.c, elemsize, elempack, batches, &allocator);
+    const size_t compact_cstep = ncnn::alignSize((size_t)source.w * source.h * source.d * elemsize, 16) / elemsize;
+    if (result.empty() || result.cstep != compact_cstep || allocator.allocations != allocations + 2)
+        return -1;
+
+    for (int b = 0; b < source.n; b++)
+        memset(source.batch(b).data, b + 7, source.total() * elemsize);
+    for (int opaque = 0; opaque < 2; opaque++)
+    {
+        source.elempack = opaque ? 0 : elempack;
+        ncnn::Mat copy = source.clone(&allocator);
+        if (copy.empty() || copy.data == source.data || copy.cstep != source.cstep || copy.elempack != source.elempack || copy.elemsize != source.elemsize || copy.n != source.n)
+            return -1;
+        for (int b = 0; b < source.n; b++)
+        {
+            if (memcmp(copy.batch(b).data, source.batch(b).data, source.total() * elemsize))
+                return -1;
+        }
+    }
+
+    source.h = 0;
+    result.create_like(source, 1, &allocator);
+    if (result.empty() || result.h != 0 || result.cstep != source.cstep || result.n != 1)
+        return -1;
+    memset(result.data, 0, result.total() * elemsize);
+
+    return 0;
+}
+
+static int test_create_like()
+{
+    for (int dims = 3; dims <= 4; dims++)
+    {
+        for (int elempack = 1; elempack <= 4; elempack *= 4)
+        {
+            for (size_t elemsize = 2; elemsize <= 4; elemsize *= 2)
+            {
+                for (int batches = 1; batches <= 3; batches += 2)
+                {
+                    if (test_create_like(dims, elempack, elemsize * elempack, batches))
+                    {
+                        fprintf(stderr, "test_create_like failed dims=%d elempack=%d elemsize=%zu batches=%d\n", dims, elempack, elemsize, batches);
+                        return -1;
+                    }
+                }
+            }
+        }
+    }
+
+    return 0;
+}
+
+#if NCNN_BATCH
 static int test_create_batch_basic()
 {
     // create a batch of 4 images, 3 channels, 8x6 spatial
@@ -5971,9 +6091,16 @@ static int test_vkmat_batch()
 }
 #endif // NCNN_VULKAN
 
+#endif // NCNN_BATCH
+
 int main()
 {
-    int ret = test_mat_batch_cpu();
+    int ret = test_create_like();
+    if (ret != 0)
+        return ret;
+
+#if NCNN_BATCH
+    ret = test_mat_batch_cpu();
     if (ret != 0)
         return ret;
 
@@ -6001,6 +6128,8 @@ int main()
     }
     ncnn::destroy_gpu_instance();
 #endif // NCNN_VULKAN
+
+#endif // NCNN_BATCH
 
     return ret;
 }

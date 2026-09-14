@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #include "testutil.h"
+#include "net.h"
 
 #if NCNN_VULKAN
 #include "command.h"
@@ -110,6 +111,132 @@ static int test_multiheadattention_kvcache_allocator(const ncnn::ParamDict& pd, 
     if (ret != 0)
         fprintf(stderr, "test_multiheadattention_kvcache_allocator failed ret=%d\n", ret);
 
+    return ret;
+}
+
+static int test_multiheadattention_kvcache_layout(int storage, int type, bool vulkan)
+{
+    ncnn::UnlockedPoolAllocator allocator;
+    ncnn::Net net;
+    net.opt.num_threads = 2;
+    net.opt.use_vulkan_compute = vulkan;
+    net.opt.use_fp16_storage = storage == 2;
+    net.opt.use_fp16_packed = false;
+    net.opt.use_fp16_arithmetic = false;
+    net.opt.use_bf16_storage = storage == 1;
+    net.opt.kvcache_allocator = &allocator;
+    net.opt.kvcache_max_seqlen_hint = 32;
+    const char param[] = "7767517\n"
+                         "3 6\n"
+                         "Input input 0 1 q\n"
+                         "Input cache 0 2 past_k past_v\n"
+                         "MultiHeadAttention mha 3 3 q past_k past_v out out_k out_v 0=16 1=4 2=192 3=12 4=12 7=1\n";
+    if (net.load_param_mem(param) != 0)
+        return -1;
+
+    std::vector<ncnn::Mat> weights(8);
+    std::vector<float> model;
+    for (int i = 0; i < 8; i++)
+    {
+        weights[i] = RandomMat(i % 2 == 0 ? 192 : i == 7 ? 12 : 16, -0.2f, 0.2f);
+        if (i % 2 == 0)
+            model.push_back(0.f);
+        const float* ptr = weights[i];
+        model.insert(model.end(), ptr, ptr + weights[i].w);
+    }
+    if (net.load_model((const unsigned char*)model.data()) != model.size() * sizeof(float))
+        return -1;
+
+    ncnn::Layer* reference = ncnn::create_layer_naive("MultiHeadAttention");
+    ncnn::ParamDict pd;
+    pd.set(0, 16);
+    pd.set(1, 4);
+    pd.set(2, 192);
+    pd.set(3, 12);
+    pd.set(4, 12);
+    pd.set(7, 1);
+    reference->load_param(pd);
+    reference->load_model(ncnn::ModelBinFromMatArray(weights.data()));
+    ncnn::Option opt;
+    opt.num_threads = 1;
+    reference->create_pipeline(opt);
+
+    ncnn::Mat key;
+    ncnn::Mat value;
+    ncnn::Mat reference_key;
+    ncnn::Mat reference_value;
+    int ret = 0;
+    const float epsilon = storage ? 0.03f : 0.001f;
+    for (int step = 0; step < 4 && ret == 0; step++)
+    {
+        ncnn::Mat query = RandomMat(12, step == 0 ? 13 : step == 3 ? 40 : 1);
+        std::vector<ncnn::Mat> bottoms(3);
+        bottoms[0] = query;
+        bottoms[1] = reference_key;
+        bottoms[2] = reference_value;
+        std::vector<ncnn::Mat> tops(3);
+        ret = reference->forward(bottoms, tops, opt);
+        if (ret != 0)
+            break;
+
+        ncnn::Mat key_before = type == 0 ? key.clone() : ncnn::Mat();
+        ncnn::Mat value_before = type == 0 ? value.clone() : ncnn::Mat();
+        ncnn::Extractor ex = net.create_extractor();
+        ex.input("q", query);
+        ex.input("past_k", key);
+        ex.input("past_v", value);
+        ncnn::Mat output;
+        ret = ex.extract("out", output);
+        if (ret != 0 || CompareMat(tops[0], output, epsilon) != 0)
+        {
+            ret = -1;
+            break;
+        }
+        if (type == 0 && !key_before.empty() && (CompareMat(key, key_before) || CompareMat(value, value_before)))
+        {
+            ret = -1;
+            break;
+        }
+
+        ncnn::Mat materialized_key;
+        ncnn::Mat materialized_value;
+        ret = ex.extract("out_k", materialized_key) || ex.extract("out_v", materialized_value);
+        if (ret != 0 || materialized_key.dims != 3 || materialized_key.w != 4 || materialized_key.c != 4 || materialized_key.elempack != 1 || materialized_key.elemsize != 4u || CompareMat(tops[1], materialized_key, epsilon) || CompareMat(tops[2], materialized_value, epsilon))
+        {
+            ret = -1;
+            break;
+        }
+
+        if (type == 1)
+        {
+            ret = ex.extract("out_k", key, 1) || ex.extract("out_v", value, 1);
+            if (key.empty() || value.empty())
+                ret = -1;
+        }
+        else
+        {
+            key = materialized_key;
+            value = materialized_value;
+            key.h = value.h = step == 1 ? 7 : step == 2 ? 0 : key.h;
+            if (key.h > 0)
+            {
+                key.channel(0).row(0)[0] += 0.25f;
+                value.channel(0).row(0)[0] -= 0.5f;
+            }
+        }
+        reference_key = materialized_key;
+        reference_value = materialized_value;
+        if (type == 0)
+        {
+            reference_key.h = key.h;
+            reference_value.h = value.h;
+        }
+    }
+
+    reference->destroy_pipeline(opt);
+    delete reference;
+    if (ret != 0)
+        fprintf(stderr, "test_multiheadattention_kvcache_layout failed storage=%d type=%d vulkan=%d\n", storage, type, vulkan);
     return ret;
 }
 
@@ -313,6 +440,26 @@ static int test_multiheadattention_vulkan_kvcache_allocator()
 int main()
 {
     SRAND(7767517);
+
+    for (int type = 0; type < 2; type++)
+    {
+        if (test_multiheadattention_kvcache_layout(0, type, false))
+            return -1;
+#if NCNN_BF16
+        if (test_multiheadattention_kvcache_layout(1, type, false))
+            return -1;
+#endif
+#if NCNN_VULKAN
+        ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device();
+        if (vkdev)
+        {
+            if (test_multiheadattention_kvcache_layout(0, type, true))
+                return -1;
+            if (vkdev->info.support_fp16_storage() && test_multiheadattention_kvcache_layout(2, type, true))
+                return -1;
+        }
+#endif
+    }
 
     return 0
            || test_multiheadattention_kvcache_allocator()

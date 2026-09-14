@@ -143,25 +143,16 @@ static int run_extractor_kvcache(ncnn::Allocator* kvcache_allocator, int cache_e
     int ret = 0;
     for (int i = 0; ret == 0 && i < append_count; i++)
     {
-        const void* old_key_data = key_cache.data;
-        const void* old_value_data = value_cache.data;
         const int new_seqlen = past_seqlen + append_lengths[i];
 
         ncnn::Allocator* step_kvcache_allocator = i >= kvcache_allocator_step ? kvcache_allocator : 0;
-        const bool old_key_reusable = old_key_data && key_cache.allocator == step_kvcache_allocator;
-        const bool old_value_reusable = old_value_data && value_cache.allocator == step_kvcache_allocator;
         ret = run_sdpa_step(net, outputs[i], key_cache, value_cache, append_lengths[i], past_seqlen, i, step_kvcache_allocator, cache_extract_type, use_bf16_storage, num_heads, num_kv_heads, head_dim, value_dim, max_seqlen_hint, mask_type);
         if (ret == 0 && (key_cache.empty() || value_cache.empty()))
             ret = -1;
-        if (ret == 0)
-        {
-            if (step_kvcache_allocator && (key_cache.allocator != step_kvcache_allocator || value_cache.allocator != step_kvcache_allocator))
-                ret = -1;
-            if (old_key_reusable && new_seqlen <= max_seqlen_hint && key_cache.data != old_key_data)
-                ret = -1;
-            if (old_value_reusable && new_seqlen <= max_seqlen_hint && value_cache.data != old_value_data)
-                ret = -1;
-        }
+        if (ret == 0 && cache_extract_type == 0 && (key_cache.elempack != 1 || value_cache.elempack != 1 || key_cache.elemsize != 4u || value_cache.elemsize != 4u || key_cache.h != new_seqlen || value_cache.h != new_seqlen))
+            ret = -1;
+        if (ret == 0 && cache_extract_type == 1 && step_kvcache_allocator && (key_cache.allocator != step_kvcache_allocator || value_cache.allocator != step_kvcache_allocator))
+            ret = -1;
 
         past_seqlen = new_seqlen;
     }

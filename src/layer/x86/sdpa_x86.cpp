@@ -187,13 +187,13 @@ int SDPA_x86::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
 
     const bool fp32 = int8_scale_term == 0
                       && query.elembits() == 32 && cur_key.elembits() == 32 && cur_value.elembits() == 32
-                      && (!kv_cache || past_key.empty() || (past_key.elembits() == 32 && past_value.elembits() == 32))
+                      && (!kv_cache || past_key.empty() || (past_key.elemsize == 4u && past_value.elemsize == 4u))
                       && (!attn_mask || attn_mask_blob.elembits() == 32);
 #if NCNN_BF16
     const bool bf16 = int8_scale_term == 0
                       && opt.use_bf16_storage
                       && query.elembits() == 16 && cur_key.elembits() == 16 && cur_value.elembits() == 16
-                      && (!kv_cache || past_key.empty() || (past_key.elembits() == 16 && past_value.elembits() == 16))
+                      && (!kv_cache || past_key.empty() || (past_key.elemsize == 2u && past_value.elemsize == 2u))
                       && (!attn_mask || attn_mask_blob.elembits() == 16);
     const bool optimized_storage = fp32 || bf16;
 #else

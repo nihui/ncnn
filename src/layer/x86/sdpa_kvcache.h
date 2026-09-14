@@ -35,6 +35,7 @@ static int sdpa_create_or_grow_kvcache(const Mat& cache, Mat& new_cache, int new
     if (reuse && new_seqlen <= current_capacity)
     {
         new_cache = cache;
+        new_cache.elempack = 1;
         new_cache.h = new_seqlen;
         return 0;
     }
@@ -131,9 +132,13 @@ static int sdpa_kvcache(const Mat& query, const Mat& past_key, const Mat& past_v
     }
 
     if (query.h == 1)
-        return sdpa_decode_kvcache(query, cached_key, cached_value, attn_mask, top_blob, scale, opt);
+        ret = sdpa_decode_kvcache(query, cached_key, cached_value, attn_mask, top_blob, scale, opt);
+    else
+        ret = sdpa_prefill_packed(query, cached_key, cached_value, attn_mask, top_blob, scale, opt);
 
-    return sdpa_prefill_packed(query, cached_key, cached_value, attn_mask, top_blob, scale, opt);
+    cached_key.elempack = cached_value.elempack = 0;
+
+    return ret;
 }
 
 #if NCNN_BF16
@@ -214,8 +219,12 @@ static int sdpa_kvcache_bf16s(const Mat& query, const Mat& past_key, const Mat& 
     }
 
     if (query.h == 1)
-        return sdpa_decode_kvcache_bf16s(query, cached_key, cached_value, attn_mask_blob, top_blob, scale, opt);
+        ret = sdpa_decode_kvcache_bf16s(query, cached_key, cached_value, attn_mask_blob, top_blob, scale, opt);
+    else
+        ret = sdpa_prefill_packed_bf16s(query, cached_key, cached_value, Mat(), attn_mask_blob, top_blob, scale, opt);
 
-    return sdpa_prefill_packed_bf16s(query, cached_key, cached_value, Mat(), attn_mask_blob, top_blob, scale, opt);
+    cached_key.elempack = cached_value.elempack = 0;
+
+    return ret;
 }
 #endif // NCNN_BF16

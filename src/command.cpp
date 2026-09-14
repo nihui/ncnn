@@ -473,6 +473,9 @@ void VkCompute::record_download(const VkMat& src, Mat& dst, const Option& opt)
     VkMat dst_staging;
     vkdev->convert_packing(src, dst_staging, dst_elempack, cast_type_to, *this, opt_staging);
 
+    if (dst_staging.empty())
+        return;
+
     // barrier device any @ compute to host-read @ compute
     if (dst_staging.data->access_flags & VK_ACCESS_HOST_WRITE_BIT || dst_staging.data->stage_flags != VK_PIPELINE_STAGE_HOST_BIT)
     {
@@ -648,6 +651,8 @@ void VkCompute::record_clone(const VkMat& src, Mat& dst, const Option& opt)
         Option opt_staging = opt;
         opt_staging.blob_vkallocator = opt.staging_vkallocator;
         record_clone(src, src_staging, opt_staging);
+        if (src_staging.empty())
+            return;
 
         // staging to host
         record_clone(src_staging, dst, opt);

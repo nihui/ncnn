@@ -40,17 +40,55 @@ The caching strategy is fundamentally different for self-attention and cross-att
 
 ## 3. ncnn kv cache representation
 
-The cache layout is private to the attention backend. Applications should extract a cache and feed it back unchanged rather than interpreting its dimensions, packing, or data layout.
+KV cache has two representations, selected by the existing `extract()` overloads:
 
-The logical sequence length is stored in `Mat::h`. The backing allocation may reserve additional sequence capacity in `Mat::cstep`. `MultiHeadAttention` and `SDPA` append directly to that reserved space. When the capacity is exhausted, the backend allocates a larger cache and copies only the valid history.
+| extraction | representation |
+| --- | --- |
+| `extract(name, mat)` or `extract(name, mat, 0)` | materialized fp32 token rows, `elempack=1` |
+| `extract(name, mat, 1)` | original backend storage and packing |
+| `extract(name, vkmat, cmd)` | original Vulkan storage and packing |
 
-Enabling KV cache selects the backend-private cache layout whether or not a dedicated cache allocator is provided. The allocator controls allocation lifetime and reuse; it does not select or identify the cache format.
+### materialized cache
 
-This representation lets CPU implementations choose a head-contiguous layout and lets Vulkan keep the cache on device. It also avoids changing the public `Mat` ABI or adding a separate cache object.
+A materialized cache is a normal three-dimensional `Mat`: `w` is the head dimension, `h` is the valid token count, and `c` is the number of KV heads. `d=1`, `n=1`, `elemsize=4`, and `elempack=1`. GQA keeps its original KV head count. K and V may have different head dimensions.
 
-KV cache data is not a persistent or cross-version format. In particular, the `MultiHeadAttention` cache is no longer compatible with the previously documented 2D transposed layout `(w = seq_len, h = embed_dim)`. Applications that extract a cache and feed it back unchanged keep the same calling pattern, but must start a new session with empty caches after upgrading ncnn. Applications must not construct, inspect, or persist cache blobs based on an assumed layout.
+Each head contains token rows. Channels follow the usual `Mat::cstep` alignment; use `cache.channel(head).row(token)` instead of assuming all heads are contiguous. Extraction allocates for the valid shape without retaining the backend's reserved capacity.
 
-KV cache outputs must be extracted with `type=1`. This preserves the backend storage type, packing, allocator, and reserved capacity so the cache can be fed back unchanged. This convention applies with or without a dedicated KV cache allocator. The legacy C++ pattern that directly feeds an extracted cache `Mat` back as input remains compatible, but applications must not rely on default extraction through wrappers or ordinary `Mat` operations preserving the private cache representation.
+The result owns storage independent of the backend cache. Applications can read, edit, clone, or trim it with ordinary `Mat` operations. Input accepts both a newly allocated compact cache and one whose `h` was shortened while retaining its original `cstep`. The attention input path converts the materialized values to the backend precision and layout automatically, without modifying the caller's storage.
+
+```cpp
+ncnn::Mat key;
+ncnn::Mat value;
+ex.extract("cache_k_out", key);
+ex.extract("cache_v_out", value);
+
+// edit a cached key token
+key.channel(head).row(token)[dim] = replacement;
+
+// keep the first keep_tokens tokens of both caches
+key.h = keep_tokens;
+value.h = keep_tokens;
+
+ncnn::Extractor next = net.create_extractor();
+next.input("cache_k_in", key);
+next.input("cache_v_in", value);
+```
+
+K/V must have matching token counts and KV head counts. Empty inputs can be default `Mat()` values, shaped zero-length matrices such as `Mat(head_dim, 0, kv_heads)`, or materialized allocations with `h=0`.
+
+### optimal cache
+
+Use explicit `type=1`, or keep a `VkMat` on device, when the application only saves the cache and passes it back. The x86 SDPA fp32/bf16 panel format uses `elempack=0` to mark opaque storage; it is not a packing factor. The int8 path, MHA, and other backends retain their existing row layout and actual packing. All remaining layout fields belong to the backend. Applications must not interpret `.h` as a public sequence length, edit the data, or apply ordinary layout conversions to this representation. `Mat::clone()` can make an independent copy of the original storage and metadata, including an opaque pack0 cache; it does not materialize the cache. Maintain token positions and generation length separately.
+
+Optimal caches follow consume-and-replace semantics and may reuse reserved storage during append. A shallow copy is not an independent snapshot. Ordinary row-layout `Mat` inputs are copied or converted to protect caller-owned data, so returning such a cache does not guarantee reuse of the original allocation. To edit or branch a cache, extract materialized data first. Materialized inputs can be shared between inference branches because inference does not write into them; application-side edits still follow ordinary `Mat` sharing rules.
+
+Pass optimal storage only to compatible attention cache ports in the same model, backend, and execution configuration. The format is not portable across backends, ISA choices, or versions. `elempack=0` does not encode provenance, and ncnn cannot detect every incompatible use. Before switching backends, materialize using the source backend and input that materialized result to the destination.
+
+For Vulkan, `extract(Mat, 1)` downloads the original device representation without unpacking or casting. The host `Mat` still contains Vulkan storage and must be returned to a compatible Vulkan path. `extract(Mat, 0)` instead returns editable CPU fp32 rows. Device transfers retain the existing `VkCompute` submission and synchronization requirements.
+
+Dedicated KV allocators control lifetime and reuse, not cache identity or representation. Both extraction modes work without them. Optimal cache edges through ordinary graph operators are unsupported; use the dedicated attention cache inputs and outputs directly.
+
+The old MHA two-dimensional transposed layout is not a materialized input format. Existing applications using default extraction now receive normal token rows; applications requiring backend storage must request `type=1`. Start with empty caches after changing ncnn versions.
 
 ## 4. converting models to support kv cache
 
@@ -327,7 +365,7 @@ Set the same allocator on every extractor belonging to the session. The session 
 
 The cache allocator must be a different allocator object from the blob allocator. KV cache currently supports only batch size 1.
 
-Cache input follows a consume-and-replace convention. After passing the cache to an extractor, release the caller's old handle and replace it with the extracted output:
+Optimal cache input follows a consume-and-replace convention. After passing the cache to an extractor, release the caller's old handle and replace it with the extracted output:
 
 ```cpp
 ex.input(cache_input_index, cache);
@@ -335,6 +373,6 @@ cache.release();
 ex.extract(cache_output_index, cache, 1);
 ```
 
-Independent sessions and beam-search branches need independent cache allocations. A shallow `Mat` copy is not an independent cache snapshot.
+Independent sessions and beam-search branches can use materialized inputs. Inference leaves those inputs unchanged. Use ordinary `Mat::clone()` as well when application-side edits need separate storage.
 
 For Vulkan, use a session-owned `VkAllocator`, call `set_kvcache_vkallocator()`, and keep cache handles as `VkMat` across extractors. The cache allocator must be different from the blob allocator. Blob, workspace, staging, and cache allocators retain their usual independent lifetimes.

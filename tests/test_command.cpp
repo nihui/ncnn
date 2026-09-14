@@ -162,6 +162,122 @@ static int test_command_transfer(const ncnn::Mat& a)
     return 0;
 }
 
+static int test_command_cstep(int dims, int elempack, bool fp16, bool staging)
+{
+    ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device();
+    if (fp16 && !vkdev->info.support_fp16_storage())
+        return 0;
+
+    ncnn::VkBlobAllocator blob_allocator(vkdev);
+    ncnn::VkStagingAllocator staging_allocator(vkdev);
+    if (staging)
+        blob_allocator.mappable = false;
+
+    ncnn::Option opt;
+    opt.num_threads = 1;
+    opt.use_fp16_storage = fp16;
+    opt.use_fp16_packed = false;
+    opt.use_bf16_storage = false;
+    opt.use_bf16_packed = false;
+    opt.blob_vkallocator = &blob_allocator;
+    opt.staging_vkallocator = &staging_allocator;
+
+    ncnn::Mat a = dims == 3 ? RandomMat(5, 19, 12) : RandomMat(5, 19, 3, 12);
+    ncnn::Mat packed;
+    ncnn::convert_packing(a, packed, elempack, opt);
+    a = packed;
+    if (fp16)
+    {
+        ncnn::Mat converted;
+        ncnn::cast_float32_to_float16(a, converted, opt);
+        a = converted;
+    }
+#if NCNN_BATCH
+    ncnn::Mat batched;
+    batched.create_like(a, 2);
+    for (int b = 0; b < batched.n; b++)
+        memcpy(batched.batch(b).data, a.data, a.total() * a.elemsize);
+    a = batched;
+#endif
+
+    ncnn::Mat cloned;
+    ncnn::Mat copied;
+    ncnn::Mat reuploaded;
+    ncnn::Mat downloaded;
+    ncnn::Mat uploaded;
+    {
+        ncnn::VkCompute cmd(vkdev);
+        ncnn::VkMat reserved;
+        cmd.record_clone(a, reserved, opt);
+        if (reserved.empty())
+            return -1;
+
+        // keep the allocation stride while shortening the logical shape
+        a.h = reserved.h = 7;
+        ncnn::VkMat shape;
+        shape.create_like(reserved, &blob_allocator);
+        if (shape.cstep != reserved.cstep)
+            return -1;
+        ncnn::VkBufferMemory* data = shape.data;
+        shape.create_like(reserved, &blob_allocator);
+        if (shape.data != data)
+            return -1;
+        shape.release();
+        if (dims == 3)
+            shape.create(a.w, a.h, a.c, a.elemsize, a.elempack, a.n, &blob_allocator);
+        else
+            shape.create(a.w, a.h, a.d, a.c, a.elemsize, a.elempack, a.n, &blob_allocator);
+        if (shape.cstep != ncnn::alignSize((size_t)a.w * a.h * a.d * a.elemsize, 16) / a.elemsize)
+            return -1;
+
+        ncnn::VkMat compact;
+        ncnn::VkMat from_host;
+        cmd.record_clone(reserved, cloned, opt);
+        cmd.record_clone(reserved, compact, opt);
+        cmd.record_clone(compact, copied, opt);
+        ncnn::VkMat raw_upload;
+        cmd.record_clone(a, raw_upload, opt);
+        cmd.record_clone(raw_upload, reuploaded, opt);
+        cmd.record_download(reserved, downloaded, opt);
+        cmd.record_upload(a, from_host, opt);
+        cmd.record_download(from_host, uploaded, opt);
+        if (cmd.submit_and_wait())
+            return -1;
+    }
+
+    ncnn::Mat transferred;
+    {
+        ncnn::VkTransfer transfer(vkdev);
+        ncnn::VkMat device;
+        transfer.record_upload(a, device, opt, false);
+        if (transfer.submit_and_wait())
+            return -1;
+        ncnn::VkCompute cmd(vkdev);
+        cmd.record_clone(device, transferred, opt);
+        if (cmd.submit_and_wait())
+            return -1;
+    }
+
+    if (cloned.cstep != a.cstep || copied.cstep != a.cstep || reuploaded.cstep != a.cstep)
+        return -1;
+    for (int b = 0; b < a.n; b++)
+    {
+        if (memcmp(a.batch(b).data, cloned.batch(b).data, a.total() * a.elemsize) || memcmp(a.batch(b).data, copied.batch(b).data, a.total() * a.elemsize) || memcmp(a.batch(b).data, reuploaded.batch(b).data, a.total() * a.elemsize))
+        {
+            fprintf(stderr, "test_command_cstep clone changed storage dims=%d elempack=%d fp16=%d staging=%d\n", dims, elempack, fp16, staging);
+            return -1;
+        }
+    }
+
+    if (cloned.elempack != a.elempack || cloned.elemsize != a.elemsize || copied.elempack != a.elempack || copied.elemsize != a.elemsize || CompareMat(a, cloned, 0.f) || CompareMat(a, copied, 0.f) || CompareMat(a, downloaded, 0.001f) || CompareMat(a, uploaded, 0.001f) || CompareMat(a, transferred, 0.f))
+    {
+        fprintf(stderr, "test_command_cstep failed dims=%d elempack=%d fp16=%d staging=%d\n", dims, elempack, fp16, staging);
+        return -1;
+    }
+
+    return 0;
+}
+
 static int test_command_0()
 {
     return 0
@@ -207,6 +323,18 @@ static int test_command_2()
 int main()
 {
     SRAND(7767517);
+
+    for (int dims = 3; dims <= 4; dims++)
+    {
+        for (int elempack = 1; elempack <= 4; elempack *= 4)
+        {
+            for (int fp16 = 0; fp16 < 2; fp16++)
+            {
+                if (test_command_cstep(dims, elempack, fp16, false) || test_command_cstep(dims, elempack, fp16, true))
+                    return -1;
+            }
+        }
+    }
 
     return test_command_0() || test_command_1() || test_command_2();
 }

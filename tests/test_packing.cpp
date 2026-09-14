@@ -206,6 +206,142 @@ static int test_packing_cpu(const ncnn::Mat& a, int in_elempack, int out_elempac
 }
 
 #if NCNN_VULKAN
+static int test_packing_gpu_cstep(int dims, int in_elempack, int out_elempack, int cast_type_from, int cast_type_to, bool storage, bool reserved_output)
+{
+    ncnn::VulkanDevice* vkdev = ncnn::get_gpu_device();
+    const bool fp16 = cast_type_from == 2 || cast_type_to == 2;
+    const bool bf16 = cast_type_from == 5 || cast_type_to == 5;
+    const bool int8 = cast_type_from == 4 || cast_type_to == 4;
+    if (storage && ((fp16 && !vkdev->info.support_fp16_storage()) || (bf16 && !vkdev->info.support_bf16_storage()) || (int8 && !vkdev->info.support_int8_storage())))
+        return 0;
+
+    ncnn::VkBlobAllocator blob_allocator(vkdev);
+    ncnn::VkStagingAllocator staging_allocator(vkdev);
+    ncnn::Option opt;
+    opt.num_threads = 1;
+    opt.use_fp16_packed = fp16;
+    opt.use_fp16_storage = fp16 && storage;
+    opt.use_fp16_arithmetic = false;
+    opt.use_bf16_packed = bf16;
+    opt.use_bf16_storage = bf16 && storage;
+    opt.use_int8_packed = int8;
+    opt.use_int8_storage = int8 && storage;
+    opt.use_int8_arithmetic = false;
+    opt.blob_vkallocator = &blob_allocator;
+    opt.staging_vkallocator = &staging_allocator;
+
+    ncnn::Mat a;
+    ncnn::Mat expected;
+    for (int t = 0; t < 2; t++)
+    {
+        const int cast_type = t == 0 ? cast_type_from : cast_type_to;
+        const int elempack = t == 0 ? in_elempack : out_elempack;
+        const size_t elemsize = (cast_type == 4 ? 1u : (cast_type == 2 || cast_type == 5) ? 2u : 4u) * elempack;
+        ncnn::Mat& m = t == 0 ? a : expected;
+        const int h = t == 0 ? 19 : 7;
+        if (dims == 3)
+            m.create(5, h, 12 / elempack, elemsize, elempack, 2);
+        else
+            m.create(5, h, 3, 12 / elempack, elemsize, elempack, 2);
+
+        for (int b = 0; b < m.n; b++)
+        {
+            ncnn::Mat mb = m.batch(b);
+            for (int q = 0; q < m.c; q++)
+            {
+                ncnn::Mat channel = mb.channel(q);
+                for (int i = 0; i < m.w * m.h * m.d; i++)
+                {
+                    for (int k = 0; k < elempack; k++)
+                    {
+                        const int v = ((q * elempack + k) * 37 + i * 13 + b * 5) % 127 - 63;
+                        const int index = i * elempack + k;
+                        if (cast_type == 1) ((float*)channel.data)[index] = v / 16.f;
+                        if (cast_type == 2) ((unsigned short*)channel.data)[index] = ncnn::float32_to_float16(v / 16.f);
+                        if (cast_type == 3) ((int*)channel.data)[index] = v;
+                        if (cast_type == 4) ((signed char*)channel.data)[index] = v;
+                        if (cast_type == 5) ((unsigned short*)channel.data)[index] = ncnn::float32_to_bfloat16(v / 16.f);
+                    }
+                }
+            }
+        }
+    }
+    a.h = 7;
+
+    ncnn::ParamDict pd;
+    pd.set(0, out_elempack);
+    pd.set(2, cast_type_from);
+    pd.set(3, cast_type_to);
+    ncnn::Layer* op = ncnn::create_layer_vulkan("Packing");
+    op->vkdev = vkdev;
+    op->load_param(pd);
+    if (reserved_output)
+    {
+        op->bottom_shapes.push_back(a);
+        op->top_shapes.push_back(expected);
+        op->bottom_shapes[0].cstep = ncnn::alignSize((size_t)a.w * a.h * a.d * a.elemsize, 16) / a.elemsize;
+    }
+    op->create_pipeline(opt);
+
+    ncnn::Mat actual;
+    ncnn::VkCompute cmd(vkdev);
+    ncnn::Option opt_upload = opt;
+    opt_upload.blob_vkallocator = &staging_allocator;
+    ncnn::VkMat a_gpu;
+    cmd.record_clone(a, a_gpu, opt_upload);
+    ncnn::VkMat actual_gpu;
+    if (reserved_output)
+    {
+        ncnn::Mat reserved;
+        if (dims == 3)
+            reserved.create(expected.w, 29, expected.c, expected.elemsize, out_elempack, expected.n);
+        else
+            reserved.create(expected.w, 29, expected.d, expected.c, expected.elemsize, out_elempack, expected.n);
+        for (int b = 0; b < reserved.n; b++)
+            memset(reserved.batch(b).data, 0xa5, reserved.total() * reserved.elemsize);
+        cmd.record_clone(reserved, actual_gpu, opt);
+        actual_gpu.h = 7;
+    }
+    const size_t out_cstep = actual_gpu.cstep;
+    int ret = op->forward(a_gpu, actual_gpu, cmd, opt);
+    if (!ret && reserved_output && actual_gpu.cstep != out_cstep)
+        ret = -1;
+    cmd.record_clone(actual_gpu, actual, opt);
+    ret = cmd.submit_and_wait() || ret;
+    op->destroy_pipeline(opt);
+    delete op;
+
+    if (!ret)
+    {
+        if (actual.dims != expected.dims || actual.w != expected.w || actual.h != expected.h || actual.d != expected.d || actual.c != expected.c || actual.n != expected.n || actual.elempack != out_elempack || actual.elemsize != expected.elemsize)
+            ret = -1;
+        else
+        {
+            for (int b = 0; b < expected.n; b++)
+            {
+                for (int q = 0; q < expected.c; q++)
+                {
+                    if (memcmp(expected.batch(b).channel(q).data, actual.batch(b).channel(q).data, (size_t)expected.w * expected.h * expected.d * expected.elemsize))
+                        ret = -1;
+                    if (reserved_output)
+                    {
+                        const unsigned char* ptr = actual.batch(b).channel(q);
+                        const size_t size = ncnn::alignSize((size_t)actual.w * actual.h * actual.d * actual.elemsize, 16);
+                        for (size_t i = size; i < actual.cstep * actual.elemsize; i++)
+                        {
+                            if (ptr[i] != 0xa5)
+                                ret = -1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (ret)
+        fprintf(stderr, "test_packing_gpu_cstep failed dims=%d in_elempack=%d out_elempack=%d cast_type_from=%d cast_type_to=%d storage=%d reserved_output=%d\n", dims, in_elempack, out_elempack, cast_type_from, cast_type_to, storage, reserved_output);
+    return ret;
+}
+
 static int test_packing_gpu(const ncnn::Mat& a, int in_elempack, int out_elempack, int cast_type)
 {
     ncnn::ParamDict pd;
@@ -488,6 +624,27 @@ static int test_packing_3()
 int main()
 {
     SRAND(7767517);
+
+#if NCNN_VULKAN
+    const int cast_types[][2] = {{1, 1}, {1, 2}, {2, 1}, {2, 2}, {1, 5}, {5, 1}, {5, 5}, {3, 3}, {3, 4}, {4, 3}, {4, 4}};
+    for (int dims = 3; dims <= 4; dims++)
+    {
+        for (int in_elempack = 1; in_elempack <= 4; in_elempack *= 4)
+        {
+            for (int out_elempack = 1; out_elempack <= 4; out_elempack *= 4)
+            {
+                for (int i = 0; i < 11; i++)
+                {
+                    for (int storage = 0; storage < 2; storage++)
+                    {
+                        if (test_packing_gpu_cstep(dims, in_elempack, out_elempack, cast_types[i][0], cast_types[i][1], storage, false) || test_packing_gpu_cstep(dims, in_elempack, out_elempack, cast_types[i][0], cast_types[i][1], storage, true))
+                            return -1;
+                    }
+                }
+            }
+        }
+    }
+#endif
 
     return 0
            || test_packing_0()
