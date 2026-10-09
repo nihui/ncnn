@@ -1,0 +1,51 @@
+name: interp-ci-diagnose
+on:
+  push:
+    branches: [work/interp-ci-diagnose-7075]
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['1.10.2', '1.12.1']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install 'numpy<2' packaging
+          python -m pip install 'torch==${{ matrix.torch }}+cpu' --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Build pnnx
+        run: |
+          cmake -S tools/pnnx -B tools/pnnx/build -DCMAKE_BUILD_TYPE=Release -DTorch_DIR="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')/Torch" -DPNNX_TNN2PNNX=OFF -DCMAKE_DISABLE_FIND_PACKAGE_Protobuf=ON -DCMAKE_DISABLE_FIND_PACKAGE_protobuf=ON > /tmp/configure.log 2>&1
+          cmake --build tools/pnnx/build --target pnnx -j 4 > /tmp/build.log 2>&1 || { tail -80 /tmp/build.log; exit 1; }
+      - name: Diagnose all mismatching outputs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('tools/pnnx/tests/test_F_interpolate_scale_factor.py')
+          s = p.read_text()
+          s = s.replace('for a0, b0 in zip(a, b):', 'for index, (a0, b0) in enumerate(zip(a, b)):')
+          s = s.replace('if not torch.allclose(a0, b0, 1e-4, 1e-4):\n                return False', 'if not torch.allclose(a0, b0, 1e-4, 1e-4):\n                print("MISMATCH", torch.__version__, name, index, tuple(a0.shape), tuple(b0.shape), "maxerr", (a0 - b0).abs().max().item(), "nan", torch.isnan(a0).any().item(), torch.isnan(b0).any().item(), flush=True)\n                print("EXPECTED", a0.flatten()[:16], "ACTUAL", b0.flatten()[:16], flush=True)')
+          Path('tools/pnnx/build/tests/test_F_interpolate_scale_factor.py').write_text(s)
+          PY
+          cd tools/pnnx/build/tests
+          python test_F_interpolate_scale_factor.py > /tmp/diagnose.log 2>&1 || true
+          cat /tmp/diagnose.log
+          { echo '### Interpolation mismatches'; grep -A1 MISMATCH /tmp/diagnose.log || true; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: interp-diagnose-${{ matrix.torch }}
+          retention-days: 3
+          path: |
+            /tmp/configure.log
+            /tmp/build.log
+            /tmp/diagnose.log
+            tools/pnnx/build/tests/test_F_interpolate_scale_factor*.pnnx.param
+            tools/pnnx/build/tests/test_F_interpolate_scale_factor*_pnnx.py
