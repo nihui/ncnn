@@ -22,7 +22,8 @@ jobs:
           python -m pip install 'torch==${{ matrix.torch }}+cpu' --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Build pnnx
         run: |
-          cmake -S tools/pnnx -B tools/pnnx/build -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 -DTorch_DIR="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')/Torch" -DPNNX_TNN2PNNX=OFF -DCMAKE_DISABLE_FIND_PACKAGE_Protobuf=ON -DCMAKE_DISABLE_FIND_PACKAGE_protobuf=ON > /tmp/configure.log 2>&1 || { cat /tmp/configure.log; exit 1; }
+          sed -i 's/set(CMAKE_CXX_STANDARD 14)/set(CMAKE_CXX_STANDARD 17)/' tools/pnnx/CMakeLists.txt
+          cmake -S tools/pnnx -B tools/pnnx/build -DCMAKE_BUILD_TYPE=Release -DTorch_DIR="$(python -c 'import torch; print(torch.utils.cmake_prefix_path)')/Torch" -DPNNX_TNN2PNNX=OFF -DCMAKE_DISABLE_FIND_PACKAGE_Protobuf=ON -DCMAKE_DISABLE_FIND_PACKAGE_protobuf=ON > /tmp/configure.log 2>&1 || { cat /tmp/configure.log; exit 1; }
           cmake --build tools/pnnx/build --target pnnx -j 4 > /tmp/build.log 2>&1 || { tail -80 /tmp/build.log; exit 1; }
       - name: Diagnose all mismatching outputs
         run: |
