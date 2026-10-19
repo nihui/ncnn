@@ -930,12 +930,13 @@ int Gemm_vulkan::forward(const std::vector<VkMat>& bottom_blobs, std::vector<VkM
         const int blocks_x = (M + coopmat_M * UNROLL_SG_M * UNROLL_WG_M - 1) / (coopmat_M * UNROLL_SG_M * UNROLL_WG_M);
         const int blocks_y = (N + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
+        const Pipeline* pipeline = out_elempack == 4 && pipeline_gemm_pack4 ? pipeline_gemm_pack4 : pipeline_gemm;
+
         VkMat dispatcher;
-        dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+        dispatcher.w = (blocks_x * blocks_y) * pipeline->local_size_x();
         dispatcher.h = 1;
         dispatcher.c = 1;
 
-        const Pipeline* pipeline = out_elempack == 4 && pipeline_gemm_pack4 ? pipeline_gemm_pack4 : pipeline_gemm;
         cmd.record_pipeline(pipeline, bindings, constants, dispatcher);
     }
     else
@@ -976,13 +977,11 @@ int Gemm_vulkan::forward(const std::vector<VkMat>& bottom_blobs, std::vector<VkM
             bindings[5] = A;
             bindings[6] = B;
 
-            const int subgroup_size = vkdev->info.subgroup_size();
-
             const int blocks_x = (M + (UNROLL_SG_M * 4 - 1)) / (UNROLL_SG_M * 4);
             const int blocks_y = (N + (UNROLL_SG_N * 4 - 1)) / (UNROLL_SG_N * 4);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * subgroup_size;
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_gemm->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = 1;
             cmd.record_pipeline(pipeline_gemm, bindings, constants, dispatcher);
@@ -1992,11 +1991,12 @@ int Gemm_vulkan::forward_int8(const std::vector<VkMat>& bottom_blobs, std::vecto
         const int blocks_x = (M + coopmat_M * UNROLL_SG_M * UNROLL_WG_M - 1) / (coopmat_M * UNROLL_SG_M * UNROLL_WG_M);
         const int blocks_y = (N + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
-        dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+        const Pipeline* pipeline = out_elempack == 4 && pipeline_gemm_pack4 ? pipeline_gemm_pack4 : pipeline_gemm;
+
+        dispatcher.w = (blocks_x * blocks_y) * pipeline->local_size_x();
         dispatcher.h = 1;
         dispatcher.c = 1;
 
-        const Pipeline* pipeline = out_elempack == 4 && pipeline_gemm_pack4 ? pipeline_gemm_pack4 : pipeline_gemm;
         cmd.record_pipeline(pipeline, bindings, constants, dispatcher);
     }
     else

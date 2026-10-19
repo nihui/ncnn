@@ -684,7 +684,7 @@ int Deconvolution_vulkan::forward(const VkMat& bottom_blob, VkMat& top_blob, VkC
                 const int blocks_y = (maxk * num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
                 VkMat dispatcher;
-                dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+                dispatcher.w = (blocks_x * blocks_y) * pipeline_deconvolution_gemm->local_size_x();
                 dispatcher.h = 1;
                 dispatcher.c = 1;
 

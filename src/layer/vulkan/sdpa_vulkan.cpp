@@ -615,14 +615,14 @@ int SDPA_vulkan::forward(const std::vector<VkMat>& bottom_blobs, std::vector<VkM
             const int blocks_x = 1;
             const int blocks_y = (src_seqlen + FA_coopmat_M * FA_UNROLL_SG_M * FA_UNROLL_WG_M - 1) / (FA_coopmat_M * FA_UNROLL_SG_M * FA_UNROLL_WG_M);
 
-            VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (FA_coopmat_subgroup_size * FA_UNROLL_WG_M);
-            dispatcher.h = 1;
-            dispatcher.c = num_heads;
-
             const int MAX_OUT_CHUNKS = (out_embed_dim + FA_coopmat_N - 1) / FA_coopmat_N;
 
             const Pipeline* pipeline = pipeline_sdpa_fa[MAX_OUT_CHUNKS - 1];
+
+            VkMat dispatcher;
+            dispatcher.w = (blocks_x * blocks_y) * pipeline->local_size_x();
+            dispatcher.h = 1;
+            dispatcher.c = num_heads;
 
             cmd.record_pipeline(pipeline, bindings, constants, dispatcher);
         }
@@ -650,19 +650,17 @@ int SDPA_vulkan::forward(const std::vector<VkMat>& bottom_blobs, std::vector<VkM
             constants[11].i = top_blob.cstep;
             constants[12].i = attn_mask_blob.cstep;
 
-            const int subgroup_size = vkdev->info.subgroup_size();
-
             const int blocks_x = 1;
             const int blocks_y = (src_seqlen + FA_coopmat_M - 1) / FA_coopmat_M;
-
-            VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (subgroup_size * FA_UNROLL_WG_M);
-            dispatcher.h = 1;
-            dispatcher.c = num_heads;
 
             const int MAX_OUT_CHUNKS = (out_embed_dim + FA_coopmat_N - 1) / FA_coopmat_N;
 
             const Pipeline* pipeline = pipeline_sdpa_fa[MAX_OUT_CHUNKS - 1];
+
+            VkMat dispatcher;
+            dispatcher.w = (blocks_x * blocks_y) * pipeline->local_size_x();
+            dispatcher.h = 1;
+            dispatcher.c = num_heads;
 
             cmd.record_pipeline(pipeline, bindings, constants, dispatcher);
         }
@@ -706,7 +704,7 @@ int SDPA_vulkan::forward(const std::vector<VkMat>& bottom_blobs, std::vector<VkM
             const int blocks_y = (N + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_sdpa_qk_cross->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = B;
 
@@ -762,7 +760,7 @@ int SDPA_vulkan::forward(const std::vector<VkMat>& bottom_blobs, std::vector<VkM
             const int blocks_y = (N + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_sdpa_qkv_cross->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = B;
 
