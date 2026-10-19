@@ -387,6 +387,7 @@ public:
     int support_VK_KHR_maintenance2;
     int support_VK_KHR_maintenance3;
     int support_VK_KHR_multiview;
+    int support_VK_KHR_pipeline_executable_properties;
     int support_VK_KHR_portability_subset;
     int support_VK_KHR_push_descriptor;
     int support_VK_KHR_robustness2;
@@ -436,6 +437,7 @@ public:
     VkPhysicalDeviceCooperativeMatrix2FeaturesNV queryCooperativeMatrix2FeaturesNV;
     VkPhysicalDeviceCooperativeVectorFeaturesNV queryCooperativeVectorFeaturesNV;
     VkPhysicalDeviceMaintenance4FeaturesKHR queryMaintenance4Features;
+    VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR queryPipelineExecutablePropertiesFeatures;
     VkPhysicalDeviceRobustness2FeaturesKHR queryRobustness2Features;
     VkPhysicalDeviceShaderBfloat16FeaturesKHR queryShaderBfloat16Features;
     VkPhysicalDeviceShaderFloat8FeaturesEXT queryShaderFloat8Features;
@@ -768,6 +770,7 @@ int GpuInfoPrivate::query_extensions()
     support_VK_KHR_maintenance2 = 0;
     support_VK_KHR_maintenance3 = 0;
     support_VK_KHR_multiview = 0;
+    support_VK_KHR_pipeline_executable_properties = 0;
     support_VK_KHR_portability_subset = 0;
     support_VK_KHR_push_descriptor = 0;
     support_VK_KHR_robustness2 = 0;
@@ -841,6 +844,8 @@ int GpuInfoPrivate::query_extensions()
             support_VK_KHR_maintenance3 = exp.specVersion;
         else if (strcmp(exp.extensionName, "VK_KHR_multiview") == 0)
             support_VK_KHR_multiview = exp.specVersion;
+        else if (strcmp(exp.extensionName, "VK_KHR_pipeline_executable_properties") == 0)
+            support_VK_KHR_pipeline_executable_properties = exp.specVersion;
         else if (strcmp(exp.extensionName, "VK_KHR_portability_subset") == 0)
             support_VK_KHR_portability_subset = exp.specVersion;
         else if (strcmp(exp.extensionName, "VK_KHR_push_descriptor") == 0)
@@ -1023,6 +1028,15 @@ int GpuInfoPrivate::query_extensions()
 void GpuInfoPrivate::query_extension_features()
 {
     queryExtensionFeatures = 0;
+
+    // query pipeline executable properties
+    memset(&queryPipelineExecutablePropertiesFeatures, 0, sizeof(queryPipelineExecutablePropertiesFeatures));
+    queryPipelineExecutablePropertiesFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR;
+    if (support_VK_KHR_pipeline_executable_properties)
+    {
+        queryPipelineExecutablePropertiesFeatures.pNext = queryExtensionFeatures;
+        queryExtensionFeatures = &queryPipelineExecutablePropertiesFeatures;
+    }
 
     // query int8 storage
     memset(&query8BitStorageFeatures, 0, sizeof(query8BitStorageFeatures));
@@ -2059,6 +2073,11 @@ bool GpuInfo::support_subgroup_size_control() const
     return d->querySubgroupSizeControlFeatures.subgroupSizeControl;
 }
 
+bool GpuInfo::support_pipeline_executable_info() const
+{
+    return d->queryPipelineExecutablePropertiesFeatures.pipelineExecutableInfo;
+}
+
 bool GpuInfo::support_compute_full_subgroups() const
 {
     return d->querySubgroupSizeControlFeatures.computeFullSubgroups;
@@ -2287,6 +2306,11 @@ int GpuInfo::support_VK_KHR_maintenance3() const
 int GpuInfo::support_VK_KHR_multiview() const
 {
     return d->support_VK_KHR_multiview;
+}
+
+int GpuInfo::support_VK_KHR_pipeline_executable_properties() const
+{
+    return d->support_VK_KHR_pipeline_executable_properties;
 }
 
 int GpuInfo::support_VK_KHR_portability_subset() const
@@ -4068,6 +4092,8 @@ void VulkanDevicePrivate::destroy_utility_operator()
 VulkanDevice::VulkanDevice(int device_index)
     : info(get_gpu_info(device_index)), d(new VulkanDevicePrivate(this))
 {
+    vkGetPipelineExecutablePropertiesKHR = 0;
+
     try_create_gpu_instance();
 
     std::vector<const char*> enabledExtensions;
@@ -4103,6 +4129,8 @@ VulkanDevice::VulkanDevice(int device_index)
         enabledExtensions.push_back("VK_KHR_maintenance3");
     if (info.support_VK_KHR_multiview())
         enabledExtensions.push_back("VK_KHR_multiview");
+    if (info.support_VK_KHR_pipeline_executable_properties())
+        enabledExtensions.push_back("VK_KHR_pipeline_executable_properties");
     if (info.support_VK_KHR_portability_subset())
         enabledExtensions.push_back("VK_KHR_portability_subset");
     if (info.support_VK_KHR_push_descriptor())
@@ -4773,6 +4801,45 @@ int VulkanDevice::create_pipeline(VkShaderModule shader_module, VkPipelineLayout
     return 0;
 }
 
+int VulkanDevice::get_pipeline_executable_properties(VkPipeline pipeline, std::vector<VkPipelineExecutablePropertiesKHR>& properties) const
+{
+    properties.clear();
+    if (!pipeline || !vkGetPipelineExecutablePropertiesKHR)
+        return -1;
+
+    VkPipelineInfoKHR pipelineInfo;
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR;
+    pipelineInfo.pNext = 0;
+    pipelineInfo.pipeline = pipeline;
+
+    for (;;)
+    {
+        uint32_t count = 0;
+        VkResult ret = vkGetPipelineExecutablePropertiesKHR(d->device, &pipelineInfo, &count, 0);
+        if (ret != VK_SUCCESS)
+            return -1;
+        if (count == 0)
+            return 0;
+
+        std::vector<VkPipelineExecutablePropertiesKHR> result(count);
+        for (uint32_t i = 0; i < count; i++)
+        {
+            result[i].sType = VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR;
+            result[i].pNext = 0;
+        }
+
+        ret = vkGetPipelineExecutablePropertiesKHR(d->device, &pipelineInfo, &count, result.data());
+        if (ret == VK_INCOMPLETE)
+            continue;
+        if (ret != VK_SUCCESS)
+            return -1;
+
+        result.resize(count);
+        properties.swap(result);
+        return 0;
+    }
+}
+
 int VulkanDevice::create_descriptor_update_template(int binding_count, const int* binding_types, VkDescriptorSetLayout descriptorset_layout, VkPipelineLayout pipeline_layout, VkDescriptorUpdateTemplateKHR* descriptor_update_template) const
 {
     if (binding_count == 0)
@@ -5281,6 +5348,11 @@ void VulkanDevice::convert_packing(const VkMat& src, VkMat& dst, int dst_elempac
 
 int VulkanDevice::init_device_extension()
 {
+    if (info.support_pipeline_executable_info())
+    {
+        vkGetPipelineExecutablePropertiesKHR = (PFN_vkGetPipelineExecutablePropertiesKHR)vkGetDeviceProcAddr(d->device, "vkGetPipelineExecutablePropertiesKHR");
+    }
+
     if (info.support_VK_KHR_bind_memory2())
     {
         vkBindBufferMemory2KHR = (PFN_vkBindBufferMemory2KHR)vkGetDeviceProcAddr(d->device, "vkBindBufferMemory2KHR");

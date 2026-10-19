@@ -44,6 +44,17 @@ public:
     uint32_t local_size_y() const;
     uint32_t local_size_z() const;
 
+    // fixed subgroup size of the created pipeline, or 0 if unknown/uncreated
+    // set_subgroup_size() only affects a subsequent create()
+    uint32_t subgroup_size() const;
+
+    // driver-reported executable properties; returns 0 on success, -1 if unavailable/failed
+    int get_executable_properties(std::vector<VkPipelineExecutablePropertiesKHR>& properties) const;
+
+    // common size reported by all executables, or 0 if unavailable, empty or ambiguous
+    // diagnostic information only; does not guarantee a fixed shader SubgroupSize
+    uint32_t executable_subgroup_size() const;
+
 protected:
     void set_shader_module(VkShaderModule shader_module);
     void set_descriptorset_layout(VkDescriptorSetLayout descriptorset_layout);

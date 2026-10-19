@@ -265,6 +265,7 @@ public:
     bool resizable_bar_enabled() const;
     bool support_image_storage() const;
     bool prefer_shader_local_memory() const;
+    bool support_pipeline_executable_info() const;
 
     // subgroup
     uint32_t subgroup_size() const;
@@ -341,6 +342,7 @@ public:
     int support_VK_KHR_maintenance2() const;
     int support_VK_KHR_maintenance3() const;
     int support_VK_KHR_multiview() const;
+    int support_VK_KHR_pipeline_executable_properties() const;
     int support_VK_KHR_portability_subset() const;
     int support_VK_KHR_push_descriptor() const;
     int support_VK_KHR_robustness2() const;
@@ -469,6 +471,9 @@ public:
     int create_pipeline(VkShaderModule shader_module, VkPipelineLayout pipeline_layout, const std::vector<vk_specialization_type>& specializations, uint32_t subgroup_size, VkPipelineCache pipeline_cache, VkPipeline* pipeline) const;
     int create_descriptor_update_template(int binding_count, const int* binding_types, VkDescriptorSetLayout descriptorset_layout, VkPipelineLayout pipeline_layout, VkDescriptorUpdateTemplateKHR* descriptor_update_template) const;
 
+    // returns 0 on success, -1 if unavailable or the query fails; clears properties on failure
+    int get_pipeline_executable_properties(VkPipeline pipeline, std::vector<VkPipelineExecutablePropertiesKHR>& properties) const;
+
     uint32_t find_memory_index(uint32_t memory_type_bits, VkFlags required, VkFlags preferred, VkFlags preferred_not) const;
     bool is_mappable(uint32_t memory_type_index) const;
     bool is_coherent(uint32_t memory_type_index) const;
@@ -530,6 +535,9 @@ public:
 
     // VK_KHR_maintenance3
     PFN_vkGetDescriptorSetLayoutSupportKHR vkGetDescriptorSetLayoutSupportKHR;
+
+    // pipeline executable properties
+    PFN_vkGetPipelineExecutablePropertiesKHR vkGetPipelineExecutablePropertiesKHR;
 
     // VK_KHR_push_descriptor
     PFN_vkCmdPushDescriptorSetWithTemplateKHR vkCmdPushDescriptorSetWithTemplateKHR;

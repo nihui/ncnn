@@ -30,6 +30,7 @@ public:
     uint32_t local_size_y;
     uint32_t local_size_z;
     uint32_t subgroup_size;
+    uint32_t created_subgroup_size;
 };
 
 Pipeline::Pipeline(const VulkanDevice* _vkdev)
@@ -45,6 +46,7 @@ Pipeline::Pipeline(const VulkanDevice* _vkdev)
     d->local_size_y = 1;
     d->local_size_z = 1;
     d->subgroup_size = vkdev->info.subgroup_size();
+    d->created_subgroup_size = 0;
 }
 
 Pipeline::~Pipeline()
@@ -220,20 +222,43 @@ int Pipeline::create(const uint32_t* spv_data, size_t spv_data_size, const std::
 {
     const PipelineCache* pipeline_cache = vkdev->get_pipeline_cache();
 
+    d->pipeline = 0;
+    d->created_subgroup_size = 0;
+
     // get from pipeline cache
-    return pipeline_cache->get_pipeline(spv_data, spv_data_size, specializations, d->local_size_x, d->local_size_y, d->local_size_z, d->subgroup_size,
-                                        &d->shader_module, &d->descriptorset_layout, &d->pipeline_layout, &d->pipeline, &d->descriptor_update_template,
-                                        d->shader_info);
+    int ret = pipeline_cache->get_pipeline(spv_data, spv_data_size, specializations, d->local_size_x, d->local_size_y, d->local_size_z, d->subgroup_size,
+                                           &d->shader_module, &d->descriptorset_layout, &d->pipeline_layout, &d->pipeline, &d->descriptor_update_template,
+                                           d->shader_info);
+    if (ret == 0)
+    {
+        if (vkdev->info.support_subgroup_size_control())
+            d->created_subgroup_size = d->subgroup_size;
+        else if (spv_data_size >= 5 * sizeof(uint32_t) && spv_data[1] < 0x00010600 && (vkdev->info.support_subgroup_ops() & VK_SUBGROUP_FEATURE_BASIC_BIT))
+            d->created_subgroup_size = vkdev->info.subgroup_size();
+        // spirv 1.6 allows varying subgroups without an explicit stage flag
+    }
+    return ret;
 }
 
 int Pipeline::create(int shader_type_index, const Option& opt, const std::vector<vk_specialization_type>& specializations)
 {
     const PipelineCache* pipeline_cache = opt.pipeline_cache ? opt.pipeline_cache : vkdev->get_pipeline_cache();
 
+    d->pipeline = 0;
+    d->created_subgroup_size = 0;
+
     // get from pipeline cache
-    return pipeline_cache->get_pipeline(shader_type_index, opt, specializations, d->local_size_x, d->local_size_y, d->local_size_z, d->subgroup_size,
-                                        &d->shader_module, &d->descriptorset_layout, &d->pipeline_layout, &d->pipeline, &d->descriptor_update_template,
-                                        d->shader_info);
+    int ret = pipeline_cache->get_pipeline(shader_type_index, opt, specializations, d->local_size_x, d->local_size_y, d->local_size_z, d->subgroup_size,
+                                           &d->shader_module, &d->descriptorset_layout, &d->pipeline_layout, &d->pipeline, &d->descriptor_update_template,
+                                           d->shader_info);
+    if (ret == 0)
+    {
+        if (vkdev->info.support_subgroup_size_control())
+            d->created_subgroup_size = d->subgroup_size;
+        else if (!vkdev->info.queryMaintenance4Features().maintenance4 && (vkdev->info.support_subgroup_ops() & VK_SUBGROUP_FEATURE_BASIC_BIT))
+            d->created_subgroup_size = vkdev->info.subgroup_size();
+    }
+    return ret;
 }
 
 VkShaderModule Pipeline::shader_module() const
@@ -279,6 +304,33 @@ uint32_t Pipeline::local_size_y() const
 uint32_t Pipeline::local_size_z() const
 {
     return d->local_size_z;
+}
+
+uint32_t Pipeline::subgroup_size() const
+{
+    return d->created_subgroup_size;
+}
+
+int Pipeline::get_executable_properties(std::vector<VkPipelineExecutablePropertiesKHR>& properties) const
+{
+    return vkdev->get_pipeline_executable_properties(d->pipeline, properties);
+}
+
+uint32_t Pipeline::executable_subgroup_size() const
+{
+    std::vector<VkPipelineExecutablePropertiesKHR> properties;
+    if (get_executable_properties(properties) != 0 || properties.empty())
+        return 0;
+
+    // an executable need not map one-to-one to a shader stage
+    // do not select just the first executable or assume that stages identifies all of them
+    const uint32_t size = properties[0].subgroupSize;
+    for (size_t i = 1; i < properties.size(); i++)
+    {
+        if (properties[i].subgroupSize != size)
+            return 0;
+    }
+    return size;
 }
 
 void Pipeline::set_shader_module(VkShaderModule shader_module)
