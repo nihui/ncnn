@@ -8,6 +8,35 @@
 
 // This header contains new structure and function declearation to fix build with old vulkan sdk
 
+#ifndef VK_KHR_pipeline_executable_properties
+#define VK_KHR_pipeline_executable_properties                                         1
+#define VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PIPELINE_EXECUTABLE_PROPERTIES_FEATURES_KHR (VkStructureType)1000269000
+#define VK_STRUCTURE_TYPE_PIPELINE_INFO_KHR                                           (VkStructureType)1000269001
+#define VK_STRUCTURE_TYPE_PIPELINE_EXECUTABLE_PROPERTIES_KHR                          (VkStructureType)1000269002
+typedef struct VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR
+{
+    VkStructureType sType;
+    void* pNext;
+    VkBool32 pipelineExecutableInfo;
+} VkPhysicalDevicePipelineExecutablePropertiesFeaturesKHR;
+typedef struct VkPipelineInfoKHR
+{
+    VkStructureType sType;
+    const void* pNext;
+    VkPipeline pipeline;
+} VkPipelineInfoKHR;
+typedef struct VkPipelineExecutablePropertiesKHR
+{
+    VkStructureType sType;
+    void* pNext;
+    VkShaderStageFlags stages;
+    char name[VK_MAX_DESCRIPTION_SIZE];
+    char description[VK_MAX_DESCRIPTION_SIZE];
+    uint32_t subgroupSize;
+} VkPipelineExecutablePropertiesKHR;
+typedef VkResult(VKAPI_PTR* PFN_vkGetPipelineExecutablePropertiesKHR)(VkDevice device, const VkPipelineInfoKHR* pPipelineInfo, uint32_t* pExecutableCount, VkPipelineExecutablePropertiesKHR* pProperties);
+#endif // VK_KHR_pipeline_executable_properties
+
 #ifndef VK_KHR_maintenance1
 #define VK_KHR_maintenance1 1
 typedef VkFlags VkCommandPoolTrimFlags;

@@ -1950,7 +1950,7 @@ int Convolution_vulkan::forward(const VkMat& bottom_blob, VkMat& top_blob, VkCom
                     const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
                     VkMat dispatcher;
-                    dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+                    dispatcher.w = (blocks_x * blocks_y) * pipeline_convolution_3x3s1d1_winograd43_gemm->local_size_x();
                     dispatcher.h = 1;
                     dispatcher.c = 36;
 
@@ -2060,7 +2060,7 @@ int Convolution_vulkan::forward(const VkMat& bottom_blob, VkMat& top_blob, VkCom
                     const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
                     VkMat dispatcher;
-                    dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+                    dispatcher.w = (blocks_x * blocks_y) * pipeline_convolution_3x3s1d1_winograd23_gemm->local_size_x();
                     dispatcher.h = 1;
                     dispatcher.c = 16;
 
@@ -2144,7 +2144,7 @@ int Convolution_vulkan::forward(const VkMat& bottom_blob, VkMat& top_blob, VkCom
             const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_convolution_gemm->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = 1;
 
@@ -2208,7 +2208,7 @@ int Convolution_vulkan::forward(const VkMat& bottom_blob, VkMat& top_blob, VkCom
             const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_convolution_1x1s1d1->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = 1;
 
@@ -4028,12 +4028,13 @@ int Convolution_vulkan::forward_int8(const VkMat& bottom_blob, VkMat& top_blob, 
                 const int blocks_x = (top_tm_blob.w + coopmat_M * UNROLL_SG_M * UNROLL_WG_M - 1) / (coopmat_M * UNROLL_SG_M * UNROLL_WG_M);
                 const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
+                const Pipeline* pipeline = pre_winograd43 ? pipeline_convolution_3x3s1d1_winograd43_gemm_int8_cm : pipeline_convolution_3x3s1d1_winograd23_gemm_int8_cm;
+
                 VkMat dispatcher;
-                dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+                dispatcher.w = (blocks_x * blocks_y) * pipeline->local_size_x();
                 dispatcher.h = 1;
                 dispatcher.c = B;
 
-                const Pipeline* pipeline = pre_winograd43 ? pipeline_convolution_3x3s1d1_winograd43_gemm_int8_cm : pipeline_convolution_3x3s1d1_winograd23_gemm_int8_cm;
                 cmd.record_pipeline(pipeline, bindings, constants, dispatcher);
             }
             else
@@ -4113,7 +4114,7 @@ int Convolution_vulkan::forward_int8(const VkMat& bottom_blob, VkMat& top_blob, 
             const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_convolution_1x1s1d1->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = 1;
 
@@ -4183,7 +4184,7 @@ int Convolution_vulkan::forward_int8(const VkMat& bottom_blob, VkMat& top_blob, 
             const int blocks_y = (num_output + coopmat_N * UNROLL_SG_N * UNROLL_WG_N - 1) / (coopmat_N * UNROLL_SG_N * UNROLL_WG_N);
 
             VkMat dispatcher;
-            dispatcher.w = (blocks_x * blocks_y) * (coopmat_subgroup_size * UNROLL_WG_M * UNROLL_WG_N);
+            dispatcher.w = (blocks_x * blocks_y) * pipeline_convolution_gemm->local_size_x();
             dispatcher.h = 1;
             dispatcher.c = 1;
 
