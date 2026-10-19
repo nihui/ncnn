@@ -14,7 +14,7 @@ static int test_created_subgroup_size(ncnn::VulkanDevice* vkdev)
     ncnn::Pipeline pipeline(vkdev);
     std::vector<VkPipelineExecutablePropertiesKHR> properties(1);
     if (pipeline.subgroup_size() != 0 || pipeline.executable_subgroup_size() != 0
-        || pipeline.get_executable_properties(properties) != -1 || !properties.empty())
+            || pipeline.get_executable_properties(properties) != -1 || !properties.empty())
         return -1;
 
     ncnn::Option opt;
@@ -49,7 +49,7 @@ static int test_created_subgroup_size(ncnn::VulkanDevice* vkdev)
     {
         pipeline.set_local_size_xyz(1, 1, 1);
         if (pipeline.create(spirv.data(), spirv.size() * sizeof(uint32_t), specializations) != 0
-            || pipeline.subgroup_size() != vkdev->info.min_subgroup_size())
+                || pipeline.subgroup_size() != vkdev->info.min_subgroup_size())
             return -1;
     }
 
@@ -57,7 +57,7 @@ static int test_created_subgroup_size(ncnn::VulkanDevice* vkdev)
     ncnn::Pipeline cached(vkdev);
     cached.set_local_size_xyz(1, 1, 1);
     if (cached.create(spirv.data(), spirv.size() * sizeof(uint32_t), specializations) != 0
-        || cached.subgroup_size() != expected)
+            || cached.subgroup_size() != expected)
         return -1;
 
     const int ret = cached.get_executable_properties(properties);
@@ -74,7 +74,7 @@ static int test_created_subgroup_size(ncnn::VulkanDevice* vkdev)
     // force a failure before calling the driver and reject stale pipeline information
     specializations.resize(1);
     if (pipeline.create(spirv.data(), spirv.size() * sizeof(uint32_t), specializations) == 0
-        || pipeline.subgroup_size() != 0 || pipeline.executable_subgroup_size() != 0)
+            || pipeline.subgroup_size() != 0 || pipeline.executable_subgroup_size() != 0)
         return -1;
 
 #if NCNN_TEST_SIGMOID
@@ -82,12 +82,12 @@ static int test_created_subgroup_size(ncnn::VulkanDevice* vkdev)
     indexed.set_local_size_xyz(1, 1, 1);
     specializations[0].u32 = 4;
     if (indexed.create(ncnn::LayerShaderType::sigmoid, opt, specializations) != 0
-        || indexed.subgroup_size() != expected)
+            || indexed.subgroup_size() != expected)
         return -1;
     ncnn::Pipeline indexed_cached(vkdev);
     indexed_cached.set_local_size_xyz(1, 1, 1);
     if (indexed_cached.create(ncnn::LayerShaderType::sigmoid, opt, specializations) != 0
-        || indexed_cached.subgroup_size() != expected)
+            || indexed_cached.subgroup_size() != expected)
         return -1;
 #endif
 
@@ -183,10 +183,9 @@ static int test_executable_queries(ncnn::VulkanDevice* vkdev)
         std::vector<VkPipelineExecutablePropertiesKHR> properties(3);
         const int ret = pipeline.get_executable_properties(properties);
         const int expected_ret = query_mode == 1 || query_mode == 2 ? -1 : 0;
-        const size_t expected_count = query_mode == 1 || query_mode == 2 || query_mode == 3 ? 0 : query_mode == 7 ? 1
-                                                                                                                  : 2;
+        const size_t expected_count = query_mode == 1 || query_mode == 2 || query_mode == 3 ? 0 : query_mode == 7 ? 1 : 2;
         if (ret != expected_ret || properties.size() != expected_count
-            || (query_mode == 4 && query_calls != 4))
+                || (query_mode == 4 && query_calls != 4))
         {
             fprintf(stderr, "executable enumeration failed mode=%d ret=%d count=%zu calls=%d\n", query_mode, ret, properties.size(), query_calls);
             return -1;
@@ -204,7 +203,7 @@ static int test_executable_queries(ncnn::VulkanDevice* vkdev)
     vkdev->vkGetPipelineExecutablePropertiesKHR = 0;
     std::vector<VkPipelineExecutablePropertiesKHR> properties(1);
     if (pipeline.get_executable_properties(properties) != -1 || !properties.empty()
-        || pipeline.executable_subgroup_size() != 0)
+            || pipeline.executable_subgroup_size() != 0)
         return -1;
 
     return 0;
