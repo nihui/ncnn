@@ -34,6 +34,39 @@ BinaryOp_riscv::BinaryOp_riscv()
 #endif
 }
 
+#if __riscv_vector
+template<typename Op>
+static void binary_op_no_broadcast_m4(const Mat& a, const Mat& b, Mat& c, const Option& opt)
+{
+    const Op op;
+
+    const int channels = a.c;
+    const int size = a.w * a.h * a.d * a.elempack;
+
+    #pragma omp parallel for num_threads(opt.num_threads)
+    for (int q = 0; q < channels; q++)
+    {
+        const float* ptr = a.channel(q);
+        const float* ptr1 = b.channel(q);
+        float* outptr = c.channel(q);
+
+        int n = size;
+        while (n > 0)
+        {
+            size_t vl = __riscv_vsetvl_e32m4(n);
+            vfloat32m4_t _p = __riscv_vle32_v_f32m4(ptr, vl);
+            vfloat32m4_t _p1 = __riscv_vle32_v_f32m4(ptr1, vl);
+            vfloat32m4_t _outp = op(_p, _p1, vl);
+            __riscv_vse32_v_f32m4(outptr, _outp, vl);
+            n -= vl;
+            ptr += vl;
+            ptr1 += vl;
+            outptr += vl;
+        }
+    }
+}
+#endif // __riscv_vector
+
 template<typename Op>
 static void binary_op_vector_no_broadcast(const float* ptr, const float* ptr1, float* outptr, int size)
 {
@@ -72,11 +105,13 @@ static void binary_op_vector_broadcast_b(const float* ptr, const float* ptr1, fl
     const float b = *ptr1;
 
 #if __riscv_vector
+    // keep vl aligned to whole packed elements
+    const int vlmax = __riscv_vsetvlmax_e32m8();
     int n = size;
-    vfloat32m8_t _bx = (elempack == 1) ? __riscv_vfmv_v_f_f32m8(b, __riscv_vsetvl_e32m8(n)) : __riscv_vle32_v_f32m8_f32m1(ptr1);
+    vfloat32m8_t _bx = (elempack == 1) ? __riscv_vfmv_v_f_f32m8(b, vlmax) : __riscv_vle32_v_f32m8_f32m1(ptr1);
     while (n > 0)
     {
-        size_t vl = __riscv_vsetvl_e32m8(n);
+        size_t vl = __riscv_vsetvl_e32m8(std::min(n, vlmax));
         vfloat32m8_t _p = __riscv_vle32_v_f32m8(ptr, vl);
         vfloat32m8_t _outp = op(_p, _bx, vl);
         __riscv_vse32_v_f32m8(outptr, _outp, vl);
@@ -102,11 +137,13 @@ static void binary_op_vector_broadcast_a(const float* ptr, const float* ptr1, fl
     const float a = *ptr;
 
 #if __riscv_vector
+    // keep vl aligned to whole packed elements
+    const int vlmax = __riscv_vsetvlmax_e32m8();
     int n = size;
-    vfloat32m8_t _ax = (elempack == 1) ? __riscv_vfmv_v_f_f32m8(a, __riscv_vsetvl_e32m8(n)) : __riscv_vle32_v_f32m8_f32m1(ptr);
+    vfloat32m8_t _ax = (elempack == 1) ? __riscv_vfmv_v_f_f32m8(a, vlmax) : __riscv_vle32_v_f32m8_f32m1(ptr);
     while (n > 0)
     {
-        size_t vl = __riscv_vsetvl_e32m8(n);
+        size_t vl = __riscv_vsetvl_e32m8(std::min(n, vlmax));
         vfloat32m8_t _p = __riscv_vle32_v_f32m8(ptr1, vl);
         vfloat32m8_t _outp = op(_ax, _p, vl);
         __riscv_vse32_v_f32m8(outptr, _outp, vl);
@@ -252,25 +289,25 @@ static void binary_op_vector(const float* ptr, const float* ptr1, float* outptr,
 {
     using namespace BinaryOp_riscv_functor;
 
-    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector<binary_op_add>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector<binary_op_sub>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector<binary_op_mul>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector<binary_op_div>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector<binary_op_max>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector<binary_op_min>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_POW) return binary_op_vector<binary_op_pow>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector<binary_op_rsub>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector<binary_op_rdiv>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector<binary_op_rpow>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector<binary_op_atan2>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector<binary_op_ratan2>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_FMOD) return binary_op_vector<binary_op_fmod>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RFMOD) return binary_op_vector<binary_op_rfmod>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_LOGADDEXP) return binary_op_vector<binary_op_logaddexp>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_FLOOR_DIVIDE) return binary_op_vector<binary_op_floor_divide>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RFLOOR_DIVIDE) return binary_op_vector<binary_op_rfloor_divide>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_vector<binary_op_remainder>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_vector<binary_op_rremainder>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector<binary_op_add_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector<binary_op_sub_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector<binary_op_mul_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector<binary_op_div_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector<binary_op_max_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector<binary_op_min_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_POW) return binary_op_vector<binary_op_pow_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector<binary_op_rsub_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector<binary_op_rdiv_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector<binary_op_rpow_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector<binary_op_atan2_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector<binary_op_ratan2_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_FMOD) return binary_op_vector<binary_op_fmod_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RFMOD) return binary_op_vector<binary_op_rfmod_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_LOGADDEXP) return binary_op_vector<binary_op_logaddexp_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_FLOOR_DIVIDE) return binary_op_vector<binary_op_floor_divide_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RFLOOR_DIVIDE) return binary_op_vector<binary_op_rfloor_divide_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_vector<binary_op_remainder_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_vector<binary_op_rremainder_m8>(ptr, ptr1, outptr, aw, bw, ap, bp);
 
     // should never reach here
 }
@@ -292,6 +329,13 @@ static void binary_op_scalar(const Mat& a, float b, Mat& c, int op_type, const O
 
 static void binary_op_no_broadcast(const Mat& a, const Mat& b, Mat& c, int op_type, const Option& opt)
 {
+#if __riscv_vector
+    using namespace BinaryOp_riscv_functor;
+
+    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_no_broadcast_m4<binary_op_remainder_m4>(a, b, c, opt);
+    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_no_broadcast_m4<binary_op_rremainder_m4>(a, b, c, opt);
+#endif // __riscv_vector
+
     const int channels = a.c;
     const int size = a.w * a.h * a.d * a.elempack;
 
@@ -632,25 +676,25 @@ static void binary_op_vector_bf16s(const unsigned short* ptr, const unsigned sho
 
     using namespace BinaryOp_riscv_functor;
 
-    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector_bf16s<binary_op_add>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector_bf16s<binary_op_sub>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector_bf16s<binary_op_mul>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector_bf16s<binary_op_div>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector_bf16s<binary_op_max>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector_bf16s<binary_op_min>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_POW) return binary_op_vector_bf16s<binary_op_pow>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector_bf16s<binary_op_rsub>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector_bf16s<binary_op_rdiv>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector_bf16s<binary_op_rpow>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector_bf16s<binary_op_atan2>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector_bf16s<binary_op_ratan2>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_FMOD) return binary_op_vector_bf16s<binary_op_fmod>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RFMOD) return binary_op_vector_bf16s<binary_op_rfmod>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_LOGADDEXP) return binary_op_vector_bf16s<binary_op_logaddexp>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_FLOOR_DIVIDE) return binary_op_vector_bf16s<binary_op_floor_divide>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RFLOOR_DIVIDE) return binary_op_vector_bf16s<binary_op_rfloor_divide>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_vector_bf16s<binary_op_remainder>(ptr, ptr1, outptr, aw, bw, ap, bp);
-    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_vector_bf16s<binary_op_rremainder>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector_bf16s<binary_op_add_m8, binary_op_add_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector_bf16s<binary_op_sub_m8, binary_op_sub_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector_bf16s<binary_op_mul_m8, binary_op_mul_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector_bf16s<binary_op_div_m8, binary_op_div_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector_bf16s<binary_op_max_m8, binary_op_max_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector_bf16s<binary_op_min_m8, binary_op_min_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_POW) return binary_op_vector_bf16s<binary_op_pow_m8, binary_op_pow_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector_bf16s<binary_op_rsub_m8, binary_op_rsub_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector_bf16s<binary_op_rdiv_m8, binary_op_rdiv_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector_bf16s<binary_op_rpow_m8, binary_op_rpow_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector_bf16s<binary_op_atan2_m8, binary_op_atan2_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector_bf16s<binary_op_ratan2_m8, binary_op_ratan2_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_FMOD) return binary_op_vector_bf16s<binary_op_fmod_m8, binary_op_fmod_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RFMOD) return binary_op_vector_bf16s<binary_op_rfmod_m8, binary_op_rfmod_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_LOGADDEXP) return binary_op_vector_bf16s<binary_op_logaddexp_m8, binary_op_logaddexp_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_FLOOR_DIVIDE) return binary_op_vector_bf16s<binary_op_floor_divide_m8, binary_op_floor_divide_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RFLOOR_DIVIDE) return binary_op_vector_bf16s<binary_op_rfloor_divide_m8, binary_op_rfloor_divide_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_vector_bf16s<binary_op_remainder_m8, binary_op_remainder_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
+    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_vector_bf16s<binary_op_rremainder_m8, binary_op_rremainder_m2>(ptr, ptr1, outptr, aw, bw, ap, bp);
 
     // should never reach here
 }
@@ -666,25 +710,25 @@ static void binary_op_vector_scalar_b_bf16s(const unsigned short* ptr, float b, 
 
     using namespace BinaryOp_riscv_functor;
 
-    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector_scalar_b_bf16s<binary_op_add>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector_scalar_b_bf16s<binary_op_sub>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector_scalar_b_bf16s<binary_op_mul>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector_scalar_b_bf16s<binary_op_div>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector_scalar_b_bf16s<binary_op_max>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector_scalar_b_bf16s<binary_op_min>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_POW) return binary_op_vector_scalar_b_bf16s<binary_op_pow>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector_scalar_b_bf16s<binary_op_rsub>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector_scalar_b_bf16s<binary_op_rdiv>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector_scalar_b_bf16s<binary_op_rpow>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector_scalar_b_bf16s<binary_op_atan2>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector_scalar_b_bf16s<binary_op_ratan2>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_FMOD) return binary_op_vector_scalar_b_bf16s<binary_op_fmod>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RFMOD) return binary_op_vector_scalar_b_bf16s<binary_op_rfmod>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_LOGADDEXP) return binary_op_vector_scalar_b_bf16s<binary_op_logaddexp>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_FLOOR_DIVIDE) return binary_op_vector_scalar_b_bf16s<binary_op_floor_divide>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RFLOOR_DIVIDE) return binary_op_vector_scalar_b_bf16s<binary_op_rfloor_divide>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_vector_scalar_b_bf16s<binary_op_remainder>(ptr, b, outptr, size);
-    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_vector_scalar_b_bf16s<binary_op_rremainder>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_ADD) return binary_op_vector_scalar_b_bf16s<binary_op_add_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_SUB) return binary_op_vector_scalar_b_bf16s<binary_op_sub_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_MUL) return binary_op_vector_scalar_b_bf16s<binary_op_mul_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_DIV) return binary_op_vector_scalar_b_bf16s<binary_op_div_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_MAX) return binary_op_vector_scalar_b_bf16s<binary_op_max_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_MIN) return binary_op_vector_scalar_b_bf16s<binary_op_min_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_POW) return binary_op_vector_scalar_b_bf16s<binary_op_pow_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RSUB) return binary_op_vector_scalar_b_bf16s<binary_op_rsub_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RDIV) return binary_op_vector_scalar_b_bf16s<binary_op_rdiv_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RPOW) return binary_op_vector_scalar_b_bf16s<binary_op_rpow_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_ATAN2) return binary_op_vector_scalar_b_bf16s<binary_op_atan2_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RATAN2) return binary_op_vector_scalar_b_bf16s<binary_op_ratan2_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_FMOD) return binary_op_vector_scalar_b_bf16s<binary_op_fmod_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RFMOD) return binary_op_vector_scalar_b_bf16s<binary_op_rfmod_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_LOGADDEXP) return binary_op_vector_scalar_b_bf16s<binary_op_logaddexp_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_FLOOR_DIVIDE) return binary_op_vector_scalar_b_bf16s<binary_op_floor_divide_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RFLOOR_DIVIDE) return binary_op_vector_scalar_b_bf16s<binary_op_rfloor_divide_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_vector_scalar_b_bf16s<binary_op_remainder_m8>(ptr, b, outptr, size);
+    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_vector_scalar_b_bf16s<binary_op_rremainder_m8>(ptr, b, outptr, size);
 
     // should never reach here
 }

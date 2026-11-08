@@ -229,75 +229,35 @@ static inline unsigned long csrrw_fxcr(unsigned long value)
 
 static inline vfloat32m8_t __riscv_vle32_v_f32m8_f32m1(const float* ptr)
 {
-    const int packn = csrr_vlenb() / 4;
-    const size_t vl = __riscv_vsetvl_e32m8(packn * 8);
-
-    // NOTE vloxei8_v_f32m8 gets illegal instruction on d1  --- nihui
-
-    // 128bit
-    static const uint32_t index_128bit[32] = {
-        0, 4, 8, 12,
-        0, 4, 8, 12,
-        0, 4, 8, 12,
-        0, 4, 8, 12,
-        0, 4, 8, 12,
-        0, 4, 8, 12,
-        0, 4, 8, 12,
-        0, 4, 8, 12
-    };
-
-    // 256bit
-    static const uint32_t index_256bit[64] = {
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28,
-        0, 4, 8, 12, 16, 20, 24, 28
-    };
-
-    const uint32_t* index = packn == 4 ? index_128bit : index_256bit;
-    vuint32m8_t bindex = __riscv_vle32_v_u32m8(index, vl);
-    return __riscv_vloxei32_v_f32m8(ptr, bindex, vl);
+    const size_t vl = __riscv_vsetvlmax_e32m1();
+    vfloat32m1_t _p = __riscv_vle32_v_f32m1(ptr, vl);
+    vfloat32m8_t _p8 = __riscv_vundefined_f32m8();
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 0, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 1, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 2, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 3, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 4, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 5, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 6, _p);
+    _p8 = __riscv_vset_v_f32m1_f32m8(_p8, 7, _p);
+    return _p8;
 }
 
 #if __riscv_zvfh
 static inline vfloat16m8_t __riscv_vle16_v_f16m8_f16m1(const __fp16* ptr)
 {
-    const int packn = csrr_vlenb() / 2;
-    const size_t vl = __riscv_vsetvl_e16m8(packn * 8);
-
-    // NOTE vloxei8_v_f16m8 gets illegal instruction on d1  --- nihui
-
-    // 128bit
-    static const uint16_t index_128bit[64] = {
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14,
-        0, 2, 4, 6, 8, 10, 12, 14
-    };
-
-    // 256bit
-    static const uint16_t index_256bit[128] = {
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30,
-        0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30
-    };
-
-    const uint16_t* index = packn == 8 ? index_128bit : index_256bit;
-    vuint16m8_t bindex = __riscv_vle16_v_u16m8(index, vl);
-    return __riscv_vloxei16_v_f16m8(ptr, bindex, vl);
+    const size_t vl = __riscv_vsetvlmax_e16m1();
+    vfloat16m1_t _p = __riscv_vle16_v_f16m1(ptr, vl);
+    vfloat16m8_t _p8 = __riscv_vundefined_f16m8();
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 0, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 1, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 2, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 3, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 4, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 5, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 6, _p);
+    _p8 = __riscv_vset_v_f16m1_f16m8(_p8, 7, _p);
+    return _p8;
 }
 #endif // __riscv_zvfh
 

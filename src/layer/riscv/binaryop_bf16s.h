@@ -63,7 +63,7 @@ static void binary_op_vector_scalar_b_bf16s(const unsigned short* ptr, float b, 
 #endif
 }
 
-template<typename Op>
+template<typename Op, typename Op_packn>
 static void binary_op_vector_broadcast_b_bf16s(const unsigned short* ptr, const unsigned short* ptr1, unsigned short* outptr, int size, int elempack)
 {
     if (elempack == 1)
@@ -73,18 +73,18 @@ static void binary_op_vector_broadcast_b_bf16s(const unsigned short* ptr, const 
     }
 
 #if __riscv_vector
-    const Op op;
+    const Op_packn op;
 
     // b holds one packed vector, repeated for every w position
-    const size_t vl = __riscv_vsetvl_e16m4(elempack);
-    vfloat32m8_t _bx = bfloat2float_rvv(__riscv_vle16_v_u16m4(ptr1, vl), vl);
+    const size_t vl = __riscv_vsetvl_e16m1(elempack);
+    vfloat32m2_t _bx = bfloat2float_rvv(__riscv_vle16_v_u16m1(ptr1, vl), vl);
 
     int n = size;
     while (n > 0)
     {
-        vfloat32m8_t _p = bfloat2float_rvv(__riscv_vle16_v_u16m4(ptr, vl), vl);
-        vfloat32m8_t _outp = op(_p, _bx, vl);
-        __riscv_vse16_v_u16m4(outptr, float2bfloat_rvv(_outp, vl), vl);
+        vfloat32m2_t _p = bfloat2float_rvv(__riscv_vle16_v_u16m1(ptr, vl), vl);
+        vfloat32m2_t _outp = op(_p, _bx, vl);
+        __riscv_vse16_v_u16m1(outptr, float2bfloat_rvv(_outp, vl), vl);
         n -= vl;
         ptr += vl;
         outptr += vl;
@@ -92,7 +92,7 @@ static void binary_op_vector_broadcast_b_bf16s(const unsigned short* ptr, const 
 #endif // __riscv_vector
 }
 
-template<typename Op>
+template<typename Op, typename Op_packn>
 static void binary_op_vector_broadcast_a_bf16s(const unsigned short* ptr, const unsigned short* ptr1, unsigned short* outptr, int size, int elempack)
 {
     const Op op;
@@ -117,16 +117,18 @@ static void binary_op_vector_broadcast_a_bf16s(const unsigned short* ptr, const 
         return;
     }
 
+    const Op_packn op_packn;
+
     // a holds one packed vector, repeated for every w position
-    const size_t vl = __riscv_vsetvl_e16m4(elempack);
-    vfloat32m8_t _ax = bfloat2float_rvv(__riscv_vle16_v_u16m4(ptr, vl), vl);
+    const size_t vl = __riscv_vsetvl_e16m1(elempack);
+    vfloat32m2_t _ax = bfloat2float_rvv(__riscv_vle16_v_u16m1(ptr, vl), vl);
 
     int n = size;
     while (n > 0)
     {
-        vfloat32m8_t _p = bfloat2float_rvv(__riscv_vle16_v_u16m4(ptr1, vl), vl);
-        vfloat32m8_t _outp = op(_ax, _p, vl);
-        __riscv_vse16_v_u16m4(outptr, float2bfloat_rvv(_outp, vl), vl);
+        vfloat32m2_t _p = bfloat2float_rvv(__riscv_vle16_v_u16m1(ptr1, vl), vl);
+        vfloat32m2_t _outp = op_packn(_ax, _p, vl);
+        __riscv_vse16_v_u16m1(outptr, float2bfloat_rvv(_outp, vl), vl);
         n -= vl;
         ptr1 += vl;
         outptr += vl;
@@ -149,12 +151,12 @@ static void binary_op_vector_broadcast_pb_bf16s(const unsigned short* ptr, const
 #if __riscv_vector
     // if (elempack == packn)
     {
-        const size_t vl = __riscv_vsetvl_e16m4(elempack);
+        const size_t vl = __riscv_vsetvl_e16m1(elempack);
         for (int i = 0; i < w; i++)
         {
-            vfloat32m8_t _p = bfloat2float_rvv(__riscv_vle16_v_u16m4(ptr, vl), vl);
-            vfloat32m8_t _outp = op(_p, bfloat16_to_float32(*ptr1), vl);
-            __riscv_vse16_v_u16m4(outptr, float2bfloat_rvv(_outp, vl), vl);
+            vfloat32m2_t _p = bfloat2float_rvv(__riscv_vle16_v_u16m1(ptr, vl), vl);
+            vfloat32m2_t _outp = op(_p, bfloat16_to_float32(*ptr1), vl);
+            __riscv_vse16_v_u16m1(outptr, float2bfloat_rvv(_outp, vl), vl);
             ptr += vl;
             ptr1 += 1;
             outptr += vl;
@@ -177,12 +179,12 @@ static void binary_op_vector_broadcast_pb_a_bf16s(const unsigned short* ptr, con
 #if __riscv_vector
     // if (elempack == packn)
     {
-        const size_t vl = __riscv_vsetvl_e16m4(elempack);
-        vfloat32m8_t _ax = bfloat2float_rvv(__riscv_vle16_v_u16m4(ptr, vl), vl);
+        const size_t vl = __riscv_vsetvl_e16m1(elempack);
+        vfloat32m2_t _ax = bfloat2float_rvv(__riscv_vle16_v_u16m1(ptr, vl), vl);
         for (int i = 0; i < w; i++)
         {
-            vfloat32m8_t _outp = op(_ax, bfloat16_to_float32(*ptr1), vl);
-            __riscv_vse16_v_u16m4(outptr, float2bfloat_rvv(_outp, vl), vl);
+            vfloat32m2_t _outp = op(_ax, bfloat16_to_float32(*ptr1), vl);
+            __riscv_vse16_v_u16m1(outptr, float2bfloat_rvv(_outp, vl), vl);
             ptr1 += 1;
             outptr += vl;
         }
@@ -190,7 +192,7 @@ static void binary_op_vector_broadcast_pb_a_bf16s(const unsigned short* ptr, con
 #endif // __riscv_vector
 }
 
-template<typename Op>
+template<typename Op, typename Op_packn>
 static void binary_op_vector_bf16s(const unsigned short* ptr, const unsigned short* ptr1, unsigned short* outptr, int aw, int bw, int ap, int bp)
 {
     const int w = std::max(aw, bw);
@@ -208,13 +210,13 @@ static void binary_op_vector_bf16s(const unsigned short* ptr, const unsigned sho
         if (bw == 1)
         {
             // broadcast single b
-            return binary_op_vector_broadcast_b_bf16s<Op>(ptr, ptr1, outptr, size, elempack);
+            return binary_op_vector_broadcast_b_bf16s<Op, Op_packn>(ptr, ptr1, outptr, size, elempack);
         }
 
         if (aw == 1)
         {
             // broadcast single a
-            return binary_op_vector_broadcast_a_bf16s<Op>(ptr, ptr1, outptr, size, elempack);
+            return binary_op_vector_broadcast_a_bf16s<Op, Op_packn>(ptr, ptr1, outptr, size, elempack);
         }
     }
 
@@ -223,7 +225,7 @@ static void binary_op_vector_bf16s(const unsigned short* ptr, const unsigned sho
         if (aw == bw)
         {
             // broadcast pack1 b
-            return binary_op_vector_broadcast_pb_bf16s<Op>(ptr, ptr1, outptr, w, elempack);
+            return binary_op_vector_broadcast_pb_bf16s<Op_packn>(ptr, ptr1, outptr, w, elempack);
         }
 
         if (bw == 1)
@@ -235,7 +237,7 @@ static void binary_op_vector_bf16s(const unsigned short* ptr, const unsigned sho
         if (aw == 1)
         {
             // broadcast single a and pack1 b
-            return binary_op_vector_broadcast_pb_a_bf16s<Op>(ptr, ptr1, outptr, w, elempack);
+            return binary_op_vector_broadcast_pb_a_bf16s<Op_packn>(ptr, ptr1, outptr, w, elempack);
         }
     }
 

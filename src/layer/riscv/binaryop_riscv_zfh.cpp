@@ -15,6 +15,39 @@
 namespace ncnn {
 
 #if NCNN_ZFH
+#if __riscv_zvfh
+template<typename Op>
+static void binary_op_no_broadcast_fp16s_m4(const Mat& a, const Mat& b, Mat& c, const Option& opt)
+{
+    const Op op;
+
+    const int channels = a.c;
+    const int size = a.w * a.h * a.d * a.elempack;
+
+    #pragma omp parallel for num_threads(opt.num_threads)
+    for (int q = 0; q < channels; q++)
+    {
+        const __fp16* ptr = a.channel(q);
+        const __fp16* ptr1 = b.channel(q);
+        __fp16* outptr = c.channel(q);
+
+        int n = size;
+        while (n > 0)
+        {
+            size_t vl = __riscv_vsetvl_e16m4(n);
+            vfloat16m4_t _p = __riscv_vle16_v_f16m4(ptr, vl);
+            vfloat16m4_t _p1 = __riscv_vle16_v_f16m4(ptr1, vl);
+            vfloat16m4_t _outp = op(_p, _p1, vl);
+            __riscv_vse16_v_f16m4(outptr, _outp, vl);
+            n -= vl;
+            ptr += vl;
+            ptr1 += vl;
+            outptr += vl;
+        }
+    }
+}
+#endif // __riscv_zvfh
+
 template<typename Op>
 static void binary_op_vector_no_broadcast_fp16s(const __fp16* ptr, const __fp16* ptr1, __fp16* outptr, int size)
 {
@@ -53,11 +86,13 @@ static void binary_op_vector_broadcast_b_fp16s(const __fp16* ptr, const __fp16* 
     const __fp16 b = *ptr1;
 
 #if __riscv_zvfh
+    // keep vl aligned to whole packed elements
+    const int vlmax = __riscv_vsetvlmax_e16m8();
     int n = size;
-    vfloat16m8_t _bx = (elempack == 1) ? __riscv_vfmv_v_f_f16m8(b, __riscv_vsetvl_e16m8(n)) : __riscv_vle16_v_f16m8_f16m1(ptr1);
+    vfloat16m8_t _bx = (elempack == 1) ? __riscv_vfmv_v_f_f16m8(b, vlmax) : __riscv_vle16_v_f16m8_f16m1(ptr1);
     while (n > 0)
     {
-        size_t vl = __riscv_vsetvl_e16m8(n);
+        size_t vl = __riscv_vsetvl_e16m8(std::min(n, vlmax));
         vfloat16m8_t _p = __riscv_vle16_v_f16m8(ptr, vl);
         vfloat16m8_t _outp = op(_p, _bx, vl);
         __riscv_vse16_v_f16m8(outptr, _outp, vl);
@@ -83,11 +118,13 @@ static void binary_op_vector_broadcast_a_fp16s(const __fp16* ptr, const __fp16* 
     const __fp16 a = *ptr;
 
 #if __riscv_zvfh
+    // keep vl aligned to whole packed elements
+    const int vlmax = __riscv_vsetvlmax_e16m8();
     int n = size;
-    vfloat16m8_t _ax = (elempack == 1) ? __riscv_vfmv_v_f_f16m8(a, __riscv_vsetvl_e16m8(n)) : __riscv_vle16_v_f16m8_f16m1(ptr);
+    vfloat16m8_t _ax = (elempack == 1) ? __riscv_vfmv_v_f_f16m8(a, vlmax) : __riscv_vle16_v_f16m8_f16m1(ptr);
     while (n > 0)
     {
-        size_t vl = __riscv_vsetvl_e16m8(n);
+        size_t vl = __riscv_vsetvl_e16m8(std::min(n, vlmax));
         vfloat16m8_t _p = __riscv_vle16_v_f16m8(ptr1, vl);
         vfloat16m8_t _outp = op(_ax, _p, vl);
         __riscv_vse16_v_f16m8(outptr, _outp, vl);
@@ -283,6 +320,24 @@ MAKE_FUNCTION(binary_op_rremainder_fp16s, (__fp16)remainderf((float)y, (float)x)
 
 #undef MAKE_FUNCTION
 
+#if __riscv_zvfh
+struct binary_op_remainder_fp16s_m4
+{
+    vfloat16m4_t operator()(const vfloat16m4_t& x, const vfloat16m4_t& y, const size_t vl) const
+    {
+        return remainder_ps(x, y, vl);
+    }
+};
+
+struct binary_op_rremainder_fp16s_m4
+{
+    vfloat16m4_t operator()(const vfloat16m4_t& x, const vfloat16m4_t& y, const size_t vl) const
+    {
+        return remainder_ps(y, x, vl);
+    }
+};
+#endif // __riscv_zvfh
+
 } // namespace BinaryOp_riscv_functor
 
 static void binary_op_vector_fp16s(const __fp16* ptr, const __fp16* ptr1, __fp16* outptr, int aw, int bw, int ap, int bp, int op_type)
@@ -329,6 +384,13 @@ static void binary_op_scalar_fp16s(const Mat& a, __fp16 b, Mat& c, int op_type, 
 
 static void binary_op_no_broadcast_fp16s(const Mat& a, const Mat& b, Mat& c, int op_type, const Option& opt)
 {
+#if __riscv_zvfh
+    using namespace BinaryOp_riscv_functor;
+
+    if (op_type == BinaryOp::Operation_REMAINDER) return binary_op_no_broadcast_fp16s_m4<binary_op_remainder_fp16s_m4>(a, b, c, opt);
+    if (op_type == BinaryOp::Operation_RREMAINDER) return binary_op_no_broadcast_fp16s_m4<binary_op_rremainder_fp16s_m4>(a, b, c, opt);
+#endif // __riscv_zvfh
+
     const int channels = a.c;
     const int size = a.w * a.h * a.d * a.elempack;
 
